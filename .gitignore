@@ -1,0 +1,11 @@
+# Database files
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+
+# Private Folders/Files
+*env
+.env
+*venv
+env*
