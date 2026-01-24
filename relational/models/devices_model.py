@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 from ..configs.database import base
 from datetime import datetime
 
+
 class Device(base):
     __tablename__ = "device"
 
@@ -16,6 +17,8 @@ class Device(base):
 
     group_id = Column(Integer, ForeignKey("devices_groups.id"), nullable=False)
     group = relationship("DevicesGroup", back_populates="devices")
+
+    alerts_device = relationship("Alerts", back_populates="device")
 
 
 class DevicesGroup(base):
