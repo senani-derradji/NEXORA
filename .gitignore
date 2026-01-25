@@ -9,3 +9,10 @@
 .env
 *venv
 env*
+__pycache__
+cache*
+*cache*
+.pytest_
+
+# special files
+dz.py
