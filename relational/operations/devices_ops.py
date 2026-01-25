@@ -1,9 +1,8 @@
-from ..configs.database import get_db
 from ..models.devices_model import Device
 from ..schemas.device_validator import DeviceValidate
 
 class DeviceOperations:
-    def __init__(self, db = get_db):
+    def __init__(self, db):
         self.session = db
 
     def create_device(self, payload: DeviceValidate):
