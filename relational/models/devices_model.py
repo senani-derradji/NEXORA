@@ -15,10 +15,10 @@ class Device(base):
     status = Column(String(10), nullable=False)
     last_seen = Column(DateTime, default=datetime.utcnow())
 
-    group_id = Column(Integer, ForeignKey("devices_groups.id"), nullable=False)
+    group_id = Column(Integer, ForeignKey("devices_groups.id"), nullable=True)
     group = relationship("DevicesGroup", back_populates="devices")
 
-    alerts_device = relationship("Alerts", back_populates="device")
+    alerts_device = relationship("Alerts", back_populates="device", cascade="all, delete-orphan")
 
 
 class DevicesGroup(base):
@@ -28,4 +28,4 @@ class DevicesGroup(base):
     name = Column(String(20), unique=True)
     description = Column(String(100))
 
-    devices = relationship("Device", back_populates="group")
+    devices = relationship("Device", back_populates="group", cascade="all, delete-orphan")
