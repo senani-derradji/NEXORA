@@ -7,7 +7,7 @@ class InfluxMainModel:
 
     def device_main_point(
                   self,
-                  device_name: str, device_ip: str, device_mac: str,
+                  device_hostname: str, device_type: str, device_ip: str, device_mac: str,
                   timestamp=None,
                   site: str = None,
             ) -> Point:
@@ -15,7 +15,8 @@ class InfluxMainModel:
         point = Point("DEVICE_STATS_V1")
 
         point = point \
-            .tag("device_name", device_name) \
+            .tag("device_hostname", device_hostname) \
+            .tag("device_type", device_type) \
             .tag("device_ip", device_ip) \
             .tag("device_mac", device_mac)
 

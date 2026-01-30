@@ -3,12 +3,12 @@ from influxdb_client.client.exceptions import InfluxDBError
 from .main_model import InfluxMainModel
 
 
-class InfluxHealthModel:
+class InfluxDeviceStatsModel:
 
-    def device_health_point(
+    def device_sys_point(
                   self,
                   device_hostname: str, device_type: str, device_ip: str, device_mac: str, # CORE DEVICE INFORMATION
-                  status: bool = 0, latency: float = None, packet_loss_percent: float = None,  # CORE DEVICE STATUS INFORMATION
+                  cpu_usage: float = None, ram_used: float = None, disk_usage: float = None,  # CORE SYSTEM INFORMATION
                   site: str = None,
                   timestamp=None
                   ) -> Point:
@@ -22,19 +22,12 @@ class InfluxHealthModel:
                                             timestamp=timestamp
                                         )
 
-        if status is None or latency is None:
-            raise InfluxDBError("DEVICE STATUS MISSING")
+        if cpu_usage is None or ram_used is None:
+            raise InfluxDBError("SYSTEM INFORMATION MISSING")
 
         point = point \
-            .field("status", status) \
-            .field("latency", latency) \
-            .field("packet_loss_percent", packet_loss_percent)
+            .field("cpu_usage", cpu_usage) \
+            .field("ram_used", ram_used) \
+            .field("disk_usage", disk_usage)
 
         return point
-
-
-
-
-
-
-
