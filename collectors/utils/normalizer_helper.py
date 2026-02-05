@@ -1,19 +1,6 @@
-def explode_metrics(normalized):
-    metrics = []
+def safe_float(value, default=0.0):
+    try:
+        return float(value) if value is not None else default
+    except (TypeError, ValueError):
+        return default
 
-    base = {
-        "device_hostname": normalized["device"]["hostname"],
-        "device_type": normalized["device"]["type"],
-        "device_ip": normalized["device"]["ip"],
-        "timestamp": normalized["timestamp"],
-    }
-
-    for k, v in normalized["sys"].items():
-        if v is not None:
-            metrics.append({**base, "value": float(v), "name": f"sys.{k}"})
-
-    for k, v in normalized["net"].items():
-        if v is not None:
-            metrics.append({**base, "value": float(v), "name": f"net.{k}"})
-
-    return metrics
