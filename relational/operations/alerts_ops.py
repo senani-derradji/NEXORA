@@ -1,28 +1,32 @@
-from ..models.alerts_model import Alerts
-from ..configs.database import get_db
-from ..schemas.alerts_validator import AlertValidate
+from relational.models.alerts_model import Alerts
+from relational.configs.database import sessionLocal
+from sqlalchemy.exc import SQLAlchemyError
 
 
 class AlertOperations:
-    def __init__(self, db = get_db):
-        self.session = db
+    def __init__(self):
+        self.session = sessionLocal()
+    def create_alert(self, alert_message, alert_level, device_id):
+        try:
+            alert = Alerts(
+                alert_message=alert_message,
+                alert_level=alert_level,
+                device_id=device_id,
+            )
+            self.session.add(alert)
+            self.session.commit()
+        except SQLAlchemyError as e:
+            self.session.rollback()
+            print(f"[AlertOPS] DB ERROR: {e}")
 
-    def create_alert(self, alert: AlertValidate):
-        alert = Alerts(
-                    alert_level=alert.alert_level,
-                    alert_message=alert.alert_message,
-                    device_id=alert.device_id
-                    )
-        self.session.add(alert)
-        self.session.commit()
-        self.session.refresh(alert)
-        return alert
 
     def get_all_alerts(self):
         return self.session.query(Alerts).all()
 
-    def get_all_alerts_by_type(self, alert_level: AlertValidate):
+
+    def get_all_alerts_by_type(self, alert_level):
         return self.session.query(Alerts).filter(Alerts.alert_level == alert_level).all()
+
 
     def get_alerts_by_device(self, device_id: int):
         return self.session.query(Alerts).filter(Alerts.device_id == device_id).all()

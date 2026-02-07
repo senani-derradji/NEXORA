@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import sessionmaker, declarative_base
 import os
 from dotenv import load_dotenv
@@ -6,8 +6,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # DEVELOPMENT
-DATABASE_URL = os.getenv("DATABASE_URL") or "sqlite:///test.db"
-engine = create_engine(DATABASE_URL, echo=True)
+DATABASE_URL = os.getenv("DATABASE_URL") or "sqlite:///metadata.db"
+engine = create_engine(DATABASE_URL, echo=False)
 sessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 base = declarative_base()
 
@@ -18,5 +18,13 @@ def get_db():
     finally:
         db.close()
 
+
 def init_db():
-    base.metadata.create_all(bind=engine)
+    inspector = inspect(engine)
+    existing_tables = inspector.get_table_names()
+
+    if not existing_tables:
+        print("No tables found. Creating database schema...")
+        base.metadata.create_all(bind=engine)
+    else:
+        print(f"Database already initialized. Tables: {existing_tables}")

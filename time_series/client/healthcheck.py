@@ -1,17 +1,17 @@
+import influxdb_client
+from influxdb_client.rest import ApiException
+from influxdb_client.client.bucket_api import BucketsApi
+from influxdb_client.client.organizations_api import OrganizationsApi
+from influxdb_client import InfluxDBClient
+from time_series.config.settings import TSBS_INFO
+
+URL=TSBS_INFO.URL
+ORG_NAME=TSBS_INFO.ORGANIZATION
+BUCKET_NAME=TSBS_INFO.BUCKET
+TOKEN=TSBS_INFO.TOKEN
+
+
 def credentials_is_valid():
-
-    import influxdb_client
-    from influxdb_client.rest import ApiException
-    from influxdb_client.client.bucket_api import BucketsApi
-    from influxdb_client.client.organizations_api import OrganizationsApi
-    from influxdb_client import InfluxDBClient
-    from ..config.settings import TSBS_INFO
-
-    URL=TSBS_INFO.URL
-    ORG_NAME=TSBS_INFO.ORGANIZATION
-    BUCKET_NAME=TSBS_INFO.BUCKET
-    TOKEN=TSBS_INFO.TOKEN
-
     try:
         client = InfluxDBClient(
                                 url=URL,
@@ -40,16 +40,9 @@ def credentials_is_valid():
     return True
 
 
-
 def health_check():
     from .client import InfluxClient
 
-    """
-    checks the health of the influxdb server and return:
-    True : if health check passed
-    Error Exception : if health check failed
-    """
-    
     try:
         health = InfluxClient().client.health()
         print(health)

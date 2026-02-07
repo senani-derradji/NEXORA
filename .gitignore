@@ -5,14 +5,15 @@
 *.db-journal
 
 # Private Folders/Files
-*env
 .env
 *venv
-env*
 __pycache__
-cache*
-*cache*
-.pytest_
+*cache
+.cache
+.pytest_cache
+*venv
+influx_env
+
 
 # special files
 dz.py
