@@ -1,4 +1,5 @@
-import grpc, time
+import grpc
+import time
 import api.core_ingest_pb2 as core_ingest_pb2
 import api.core_ingest_pb2_grpc as core_ingest_pb2_grpc
 from collectors.utils.normalizer_helper import safe_float
@@ -35,18 +36,19 @@ class CoreClient:
                 "timestamp": metric.get("timestamp", int(time.time()))
             },
 
-            tags = {
-                "type" : metric.get("device", {}).get("type", "unknown"),
-                "ip" : metric.get("device", {}).get("ip", "unknown"),
-                "mac" : metric.get("device", {}).get("mac", "unknown"),
-                "status" : metric.get("status", "unknown")
+            tags={
+                "type": metric.get("device", {}).get("type", "unknown"),
+                "ip": metric.get("device", {}).get("ip", "unknown"),
+                "mac": metric.get("device", {}).get("mac", "unknown"),
+                "status": metric.get("status", "unknown")
             },
 
             timestamp=int(time.time())
         )
 
         try:
-            response = self.stub.SendMetric(proto, timeout=2)
+            response = self.stub.SendMetric(proto, timeout=0.5)
+            print(f"[Collector] Metric sent successfully")
             return response.success
         except grpc.RpcError as e:
             print("[Collector] gRPC Error:", e)
