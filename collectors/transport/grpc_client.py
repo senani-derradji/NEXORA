@@ -1,7 +1,7 @@
 import grpc
 import time
-import api.core_ingest_pb2 as core_ingest_pb2
-import api.core_ingest_pb2_grpc as core_ingest_pb2_grpc
+import transport.core_ingest_pb2 as core_ingest_pb2
+import transport.core_ingest_pb2_grpc as core_ingest_pb2_grpc
 from collectors.utils.normalizer_helper import safe_float
 
 

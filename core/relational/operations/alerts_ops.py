@@ -1,5 +1,5 @@
-from relational.models.alerts_model import Alerts
-from relational.configs.database import sessionLocal
+from core.relational.models.alerts_model import Alerts
+from core.relational.configs.database import sessionLocal
 from sqlalchemy.exc import SQLAlchemyError
 
 

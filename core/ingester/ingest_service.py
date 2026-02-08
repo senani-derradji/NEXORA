@@ -1,7 +1,7 @@
 import os, sys ; sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from api import core_ingest_pb2 as core_ingest_pb2
-from api import core_ingest_pb2_grpc as core_ingest_pb2_grpc
+from transport import core_ingest_pb2 as core_ingest_pb2
+from transport import core_ingest_pb2_grpc as core_ingest_pb2_grpc
 from concurrent import futures
 import time, grpc
 from core.processer.normalizer import Normalizer

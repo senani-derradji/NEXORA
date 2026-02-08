@@ -2,8 +2,8 @@ import os, sys ; sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__
 
 from time_series.writers.device_health_writer import WriteHealthStatus
 from core.writer.metadata_writer import DeviceMetadata
-from relational.operations.devices_ops import DeviceOperations
-from core.writer.alert_engine.CoreAlertEngine import AlertEngine
+from core.relational.operations.devices_ops import DeviceOperations
+from core.alert_engine.CoreAlertEngine import AlertEngine
 
 
 class CoreWriter:

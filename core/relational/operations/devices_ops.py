@@ -1,5 +1,5 @@
-from relational.models.devices_model import Device
-from relational.configs.database import sessionLocal, init_db
+from core.relational.models.devices_model import Device
+from core.relational.configs.database import sessionLocal, init_db
 from datetime import datetime
 
 class DeviceOperations:
