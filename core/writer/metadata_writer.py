@@ -1,6 +1,6 @@
 import os, sys ; sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
-from core.relational.operations.devices_ops import DeviceOperations
 
+from relational.operations.devices_ops import DeviceOperations
 
 
 class DeviceMetadata:

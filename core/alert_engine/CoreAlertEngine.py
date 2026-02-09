@@ -1,7 +1,7 @@
-from core.relational.operations.alerts_ops import AlertOperations
-from core.relational.operations.devices_ops import DeviceOperations
-from core.relational.configs.database import sessionLocal
-from core.relational.models.devices_model import Device
+from relational.operations.alerts_ops import AlertOperations
+from relational.operations.devices_ops import DeviceOperations
+from relational.configs.database import sessionLocal
+from relational.models.devices_model import Device
 
 
 class AlertEngine:
