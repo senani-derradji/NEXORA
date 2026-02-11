@@ -19,7 +19,7 @@ class DatabaseBuffer:
 
         b_m = SqlMetrics(
             device=data["device"].get("hostname", "unknown"),
-            metric_type=data["device"].get("type", "unknown"),
+            metric_type=data["device"].get("device_type", "unknown"),
             ots=data["timestamp"],
             payload=data,
             sent=False

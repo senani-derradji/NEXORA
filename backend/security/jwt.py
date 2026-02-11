@@ -11,8 +11,6 @@ ALGORITHM = os.getenv("ALGORITHM") or "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES") or 60)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
-print(oauth2_scheme)
-
 
 def create_access_token(data: dict):
     to_encode = data.copy()
@@ -22,18 +20,10 @@ def create_access_token(data: dict):
 
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
-    print("RAW TOKEN:", token)
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        print("Payload:", payload)
         email = payload.get("sub")
         role = payload.get("role")
-        print(f"""
-               -----------------------
-              |   email : {email}
-              |   role : {role}
-              -------------------------
-              """)
         if email is None or role is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
         return {"email": email, "role": role}

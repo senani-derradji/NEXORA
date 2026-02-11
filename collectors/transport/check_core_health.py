@@ -4,7 +4,7 @@ from grpc_health.v1 import health_pb2, health_pb2_grpc ; import grpc
 class CoreHealth:
 
     @staticmethod
-    def check(host="localhost", port=50051, timeout=5) -> bool:
+    def check(host="localhost", port=50051, timeout=8) -> bool:
 
         channel = None
 

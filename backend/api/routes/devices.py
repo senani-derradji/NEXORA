@@ -1,24 +1,50 @@
 from fastapi import APIRouter, Depends, HTTPException
 from relational.operations.devices_ops import DeviceOperations
 from backend.security.jwt import require_role
-from backend.schema.validator import DeviceUpdateForm
+from backend.schema.validator import DeviceUpdateForm, DeviceCreateForm
+
 
 device_ops = DeviceOperations()
 router = APIRouter()
+
+@router.post("/create")
+def create_device(user: dict = Depends(require_role("admin")), device_form = Depends(DeviceCreateForm)):
+    device = device_ops.create_device(
+        hostname=device_form.hostname,
+        device_type=device_form.device_type,
+        ip_address=device_form.ip_address,
+        mac_address=device_form.mac_address
+    )
+    if not device:
+        raise HTTPException(status_code=400, detail="Device already exists")
+    return { "status": "created", "device": {"hostname": device.hostname} }
+
 
 @router.get("/")
 def list_devices(user: dict = Depends(require_role("admin"))):
     return device_ops.get_all_devices()
 
-@router.get("/{device_hostame}")
-def get_device(device_hostame: str, user: dict = Depends(require_role("admin"))):
-    return device_ops.get_device_by_hostname(hostname=device_hostame)
+
+@router.get("/{device_mac_address}")
+def get_device(device_mac_address: str, user: dict = Depends(require_role("admin"))):
+    device = device_ops.get_device_by_mac_address(mac_address=device_mac_address)
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    return {"device": device}
 
 
+@router.delete("/{device_mac_address}")
+def delete_device(device_mac_address: str, user: dict = Depends(require_role("admin"))):
 
-@router.put("/{device_hostname}")
+    if not device_ops.delete_device(device_mac_address=device_mac_address):
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    return {"status": "deleted"}
+
+
+@router.put("/{device_mac_address}")
 def update_device_api(
-    device_hostname: str,
+    device_mac_address: str,
     device_form: DeviceUpdateForm,
     user: dict = Depends(require_role("admin"))
     ):
@@ -27,7 +53,8 @@ def update_device_api(
 
     if not data:
         raise HTTPException(status_code=400, detail="No data provided")
-    result = device_ops.update_device(device_hostname=device_hostname, data=data)
+
+    result = device_ops.update_device(mac_address=device_mac_address, data=data)
 
     if result is False:
         raise HTTPException(status_code=404, detail="Device not found")
@@ -36,7 +63,3 @@ def update_device_api(
         raise HTTPException(status_code=500, detail=result)
 
     return {"status": "updated", "device": result}
-
-
-
-

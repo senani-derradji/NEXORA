@@ -14,12 +14,12 @@ class Normalizer:
                 "ip_address" : tags.get("ip"),
                 "mac_address" : tags.get("mac"),
                 "status" : tags.get("status"),
-                "type" : tags.get("type"),
+                "device_type" : tags.get("device_type"),
                 }
 
 
 
-        if tags.get("type") in __net_devices:
+        if tags.get("device_type") in __net_devices:
             data = {
                     "cpu" : raw_metrics.get("cpu"),
                     "ram" : raw_metrics.get("ram"),
@@ -33,7 +33,7 @@ class Normalizer:
                     "packet_loss" : raw_metrics.get("packet_loss"),
                 }
 
-        elif tags.get("type") in __os_devices:
+        elif tags.get("device_type") in __os_devices:
             data = {
                     "cpu" : raw_metrics.get("cpu"),
                     "ram" : raw_metrics.get("ram"),

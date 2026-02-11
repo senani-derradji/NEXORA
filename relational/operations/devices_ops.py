@@ -6,14 +6,14 @@ class DeviceOperations:
     def __init__(self):
         self.session = sessionLocal()
 
-    def create_device(self, hostname, device_type, ip_address, mac_address, status):
+    def create_device(self, hostname, device_type, ip_address, mac_address, status="START", interval=None):
 
         try:
             device = self.session.query(Device).filter_by(mac_address=mac_address).first()
 
             if device:
                 if device.status != status:
-                    print(f"[STATUS CHANGE] {device.hostname}: {device.status} → {status}")
+                    print(f"[STATUS CHANGE] {device.hostname}: {device.status} -> {status}")
                     device.status = status
                     device.last_seen = datetime.utcnow()
                     self.session.commit()
@@ -27,12 +27,14 @@ class DeviceOperations:
                     ip_address=ip_address,
                     mac_address=mac_address,
                     status=status,
+                    interval=interval,
                     last_seen=datetime.utcnow()
                 )
+                
                 self.session.add(device)
-                print(f"[DEVICE CREATE] {hostname} | {status}")
+                self.session.commit()
+                self.session.refresh(device)
 
-            self.session.commit()
             return device
 
         except Exception as e:
@@ -48,6 +50,14 @@ class DeviceOperations:
                 .filter(Device.hostname == hostname)\
                 .first()
 
+    def get_device_by_mac_address(self, mac_address):
+        return self.session.query(Device).filter(Device.mac_address == mac_address).first()
+
+    def get_device_by_ip_address(self, ip_address):
+        return self.session.query(Device).filter(Device.ip_address == ip_address).first()
+
+    def get_devices_by_status(self, status):
+        return self.session.query(Device).filter(Device.status == status).all()
 
     def update_last_seen(self, hostname):
         device = self.get_device_by_hostname(hostname)
@@ -75,8 +85,8 @@ class DeviceOperations:
             self.update_last_seen(hostname)
 
 
-    def delete_device(self, device_hostname: str):
-        device = self.get_device_by_hostname(device_hostname)
+    def delete_device(self, device_mac_address: str):
+        device = self.get_device_by_mac_address(device_mac_address)
         if not device:
             return False
 
@@ -95,19 +105,18 @@ class DeviceOperations:
         return self.session.query(Device).filter(Device.mac_address == mac_address).first()
 
 
-    def update_device(self, device_hostname: str, data: dict):
-        if not device_hostname or not data:
+    def update_device(self, mac_address: str, data: dict):
+        if not mac_address or not data:
             return False
 
         try:
-            device = self.session.query(Device).filter(Device.hostname == device_hostname).first()
+            device = self.session.query(Device).filter(Device.mac_address == mac_address).first()
             if not device:
                 return False
 
             device.hostname    = data.get("hostname", device.hostname)
             device.device_type = data.get("device_type", device.device_type)
             device.ip_address  = data.get("ip_address", device.ip_address)
-            device.mac_address = data.get("mac_address", device.mac_address)
 
             self.session.commit()
             self.session.refresh(device)
@@ -120,6 +129,3 @@ class DeviceOperations:
 
         finally:
             self.session.close()
-
-
-

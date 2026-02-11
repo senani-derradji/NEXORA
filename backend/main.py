@@ -20,6 +20,7 @@ app = FastAPI(
 def on_startup():
     print("STARTUP ...........................")
     init_db()
+    
     create_supper_user(password="admin")
 
 

@@ -5,6 +5,7 @@ from relational.operations.devices_ops import DeviceOperations
 
 
 class AlertOperations:
+
     def __init__(self):
         self.session = sessionLocal()
         self.device_ops = DeviceOperations()
@@ -26,15 +27,24 @@ class AlertOperations:
 
     def get_all_alerts(self):
         length_of_alerts = len(self.session.query(Alerts).all())
+        if not length_of_alerts:
+            return False
         return length_of_alerts
 
 
     def get_all_alerts_by_type(self, alert_level):
-        return self.session.query(Alerts).filter(Alerts.alert_level == alert_level).all()
+        alerts_by_type = self.session.query(Alerts).filter(Alerts.alert_level == alert_level).all()
+        if not alerts_by_type:
+            return False
+        return alerts_by_type
 
 
     def get_alerts_by_device_hostname(self, hostname: int):
-        return self.device_ops.get_device_by_hostname(hostname).alerts_device
+        alerts = self.device_ops.get_device_by_hostname(hostname).alerts_device
+        if not alerts:
+            return False
+        return alerts
+
 
     def delete_alert(self, alert_id: int):
         alert = self.session.query(Alerts).filter(Alerts.id == alert_id).first()
@@ -46,3 +56,11 @@ class AlertOperations:
 
     def get_all_alerts(self):
         return self.session.query(Alerts).all()
+
+    def delete_alerts_by_device_hostname(self, hostname: str):
+        device = self.device_ops.get_device_by_hostname(hostname)
+        if not device:
+            return False
+        self.session.query(Alerts).filter(Alerts.device_id == device.id).delete()
+        self.session.commit()
+        return True

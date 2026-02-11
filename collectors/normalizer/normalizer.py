@@ -8,7 +8,7 @@ class Normalizer:
             "device":
                 {
                     "hostname": raw_metric.get("device_host", "unknown"),
-                    "type": raw_metric.get("device_type", "unknown"),
+                    "device_type": raw_metric.get("device_type", "unknown"),
                     "ip": raw_metric.get("device_ip", "unknown"),
                     "mac": raw_metric.get("device_mac", "unknown")
                 },

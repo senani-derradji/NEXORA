@@ -1,5 +1,4 @@
-import grpc
-import time
+import grpc, time
 import transport.core_ingest_pb2 as core_ingest_pb2
 import transport.core_ingest_pb2_grpc as core_ingest_pb2_grpc
 from collectors.utils.normalizer_helper import safe_float
@@ -11,14 +10,9 @@ class CoreClient:
         self.stub = core_ingest_pb2_grpc.CoreIngestStub(self.channel)
 
     def send_metric(self, metric):
-        if not metric:
-            print("No metric to send (None). Skipping...")
-            return False
+        if not metric: return False
 
-        proto = core_ingest_pb2.Metric(
-            device_hostname=metric.get("device", {}).get("hostname", "unknown"),
-
-            metric_values={
+        metric_values={
                 "cpu": safe_float(metric.get("sys", {}).get("cpu")),
                 "ram": safe_float(metric.get("sys", {}).get("ram")),
                 "disk": safe_float(metric.get("sys", {}).get("disk")),
@@ -34,21 +28,32 @@ class CoreClient:
                 "latency": safe_float(metric.get("net", {}).get("latency")),
 
                 "timestamp": metric.get("timestamp", int(time.time()))
-            },
+            }
 
-            tags={
-                "type": metric.get("device", {}).get("type", "unknown"),
+        tags={
+                "device_type": metric.get("device", {}).get("device_type", "unknown"),
                 "ip": metric.get("device", {}).get("ip", "unknown"),
                 "mac": metric.get("device", {}).get("mac", "unknown"),
                 "status": metric.get("status", "unknown")
-            },
+            }
+        print(f"""
+--------------------------------------------------------------------------------------------
+              hostname : {metric.get("device", {}).get("hostname", "unknown")}
+              metric_values : {metric_values}
+              tags : {tags}
+--------------------------------------------------------------------------------------------
+              """)
 
+        proto = core_ingest_pb2.Metric(
+            device_hostname=metric.get("device", {}).get("hostname", "unknown"),
+            metric_values=metric_values,
+            tags=tags,
             timestamp=int(time.time())
         )
 
         try:
-            response = self.stub.SendMetric(proto, timeout=0.5)
-            print(f"[Collector] Metric sent successfully")
+            response = self.stub.SendMetric(proto, timeout=5)
+            print(f"[Collector] Metric Status : ", response.success)
             return response.success
         except grpc.RpcError as e:
             print("[Collector] gRPC Error:", e)

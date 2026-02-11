@@ -27,9 +27,10 @@ def init_db():
     inspector = inspect(engine)
     existing_tables = inspector.get_table_names()
 
-    if not existing_tables:
-        print("No tables found. Creating database schema...")
-        base.metadata.create_all(bind=engine)
-    else:
-        print(f"Database already initialized. Tables: {existing_tables}")
-        exit
+    print(f"Existing tables before init: {existing_tables}")
+
+    base.metadata.create_all(bind=engine)
+    inspector = inspect(engine)
+    all_tables = inspector.get_table_names()
+
+    print(f"Tables after init: {all_tables}")
