@@ -1,7 +1,7 @@
-from relational.models.alerts_model import Alerts
-from relational.configs.database import sessionLocal
+from models.alerts_model import Alerts
+from configs.database import sessionLocal
 from sqlalchemy.exc import SQLAlchemyError
-from relational.operations.devices_ops import DeviceOperations
+from operations.devices_ops import DeviceOperations
 
 
 class AlertOperations:

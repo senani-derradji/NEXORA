@@ -1,5 +1,5 @@
-from relational.models.devices_model import Device
-from relational.configs.database import sessionLocal
+from models.devices_model import Device
+from configs.database import sessionLocal
 from datetime import datetime
 
 class DeviceOperations:
@@ -30,7 +30,7 @@ class DeviceOperations:
                     interval=interval,
                     last_seen=datetime.utcnow()
                 )
-                
+
                 self.session.add(device)
                 self.session.commit()
                 self.session.refresh(device)

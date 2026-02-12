@@ -1,8 +1,5 @@
-import os, sys ; sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
-
-from relational.configs.database import sessionLocal as SessionLocal
-from relational.models.user import User
-from backend.schema.validator import UserCreate
+from configs.database import sessionLocal as SessionLocal
+from models.user import User
 
 
 
@@ -32,7 +29,7 @@ class UserOperations:
         self.db.commit()
         return user
 
-    def update_user(self, user_id: int, data: UserCreate):
+    def update_user(self, user_id: int, data: dict):
         user = self.db.query(User).filter(User.id == user_id).first()
         if not user:
             return None
@@ -41,15 +38,4 @@ class UserOperations:
         self.db.commit()
         self.db.refresh(user)
         return user
-
-
-
-
-class UserUtils:
-
-    @staticmethod
-    def get_username_from_email(email):
-        if "@" in email:
-            return email.split("@")[0]
-        return email
 

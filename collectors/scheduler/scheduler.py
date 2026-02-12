@@ -10,8 +10,10 @@ from collectors.utils.devices_ import DeviceBootstrapper
 
 
 class Scheduler:
-    def __init__(self, devices_file="collectors/config/devices.yml"):
+    def __init__(self, devices_file="collectors/config/devices.yml", host="localhost", port=50051):
         self.devices_file = devices_file
+        self.host = host
+        self.port = port
         self.bootstrapper = DeviceBootstrapper(yaml_path=devices_file)
         self.devices = self.bootstrapper.check_dbs_exists_and_matched_with_yaml()
 
@@ -44,7 +46,7 @@ class Scheduler:
 
                 normalized = Normalizer.normalize(raw_metrics)
 
-            if CoreHealth.check(host="localhost", port=50051, timeout=2):
+            if CoreHealth.check(host=self.host, port=self.port, timeout=2):
                 self.buffer.push_data(metric=normalized, status=True)
                 get = self.buffer.pop_data()
                 resp = self.CoreClient.send_metric(metric=get)
