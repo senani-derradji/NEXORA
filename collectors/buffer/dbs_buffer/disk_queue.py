@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine, Select, inspect
 from sqlalchemy.orm import sessionmaker
-from collectors.buffer.dbs_buffer.database_model import SqlMetrics, Base
+from buffer.dbs_buffer.database_model import SqlMetrics, Base
 
 
 class DatabaseBuffer:

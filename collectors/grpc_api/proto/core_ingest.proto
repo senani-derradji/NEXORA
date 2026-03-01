@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package core;
+
+service CoreIngest {
+  rpc SendMetric (Metric) returns (Ack);
+}
+
+message Metric {
+  string device_hostname = 1;
+  map<string, double> metric_values = 2;
+  map<string, string> tags = 3;
+  int64 timestamp = 4;
+}
+
+message Ack {
+  bool success = 1;
+  string message = 2;
+}
+

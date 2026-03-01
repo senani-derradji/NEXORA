@@ -1,6 +1,6 @@
-from collectors.buffer.memory_queue import MemoryQueue
-from collectors.buffer.dbs_buffer.disk_queue import DatabaseBuffer
-from collectors.transport.grpc_client import CoreClient
+from buffer.memory_queue import MemoryQueue
+from buffer.dbs_buffer.disk_queue import DatabaseBuffer
+from transport.grpc_client import CoreClient
 
 
 class BufferManager:

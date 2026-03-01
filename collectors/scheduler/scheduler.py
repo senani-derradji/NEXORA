@@ -1,12 +1,12 @@
 import asyncio
-from collectors.engines.engine_virtual import VirtualEngine
-from collectors.scheduler.heartbeat import DeviceHeartbeat
-from collectors.normalizer.normalizer import Normalizer
-from collectors.utils.default_data import down_metric
-from collectors.transport.check_core_health import CoreHealth
-from collectors.buffer.buffer_manager import BufferManager
-from collectors.transport.grpc_client import CoreClient
-from collectors.utils.devices_ import DeviceBootstrapper
+from engines.engine_virtual import VirtualEngine
+from scheduler.heartbeat import DeviceHeartbeat
+from normalizer.normalizer import Normalizer
+from utils.default_data import down_metric
+from transport.check_core_health import CoreHealth
+from buffer.buffer_manager import BufferManager
+from transport.grpc_client import CoreClient
+from utils.devices_ import DeviceBootstrapper
 
 
 class Scheduler:

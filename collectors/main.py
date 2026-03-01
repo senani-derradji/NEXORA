@@ -1,5 +1,5 @@
-import time, asyncio
-from collectors.scheduler.scheduler import Scheduler
+import asyncio
+from scheduler.scheduler import Scheduler
 
 
 scheduler = Scheduler()
