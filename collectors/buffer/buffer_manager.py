@@ -5,9 +5,11 @@ from transport.grpc_client import CoreClient
 
 class BufferManager:
     def __init__(self):
+        self.host = "core"
+        self.port = 50051
         self.mem = MemoryQueue()
         self.disk = DatabaseBuffer()
-        self.client = CoreClient()
+        self.client = CoreClient(host=self.host, port=self.port)
 
     def push_data(self, metric, status):
 

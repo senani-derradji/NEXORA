@@ -1,36 +1,27 @@
-from grpc_health.v1 import health_pb2, health_pb2_grpc ; import grpc
-
+from grpc_health.v1 import health_pb2, health_pb2_grpc
+import grpc
 
 class CoreHealth:
-
     @staticmethod
-    def check(host="localhost", port=50051, timeout=8) -> bool:
-
+    def check(host, port, timeout=8) -> bool:
         channel = None
+        print(f"[HealthCheck] Checking Core at {host}:{port}")
 
         try:
             channel = grpc.insecure_channel(f"{host}:{port}")
+            grpc.channel_ready_future(channel).result(timeout=timeout)
 
-            health_stub = health_pb2_grpc.HealthStub(channel)
+            stub = health_pb2_grpc.HealthStub(channel)
+            response = stub.Check(health_pb2.HealthCheckRequest(service=""), timeout=timeout)
 
-            response = health_stub.Check(
-                health_pb2.HealthCheckRequest(service=""),
-                timeout=timeout
-            )
-            is_healthy = response.status == health_pb2.HealthCheckResponse.SERVING
+            healthy = response.status == health_pb2.HealthCheckResponse.SERVING
+            print(f"[HealthCheck] Core health: {healthy}")
+            return healthy
 
-            return is_healthy
+        except grpc.RpcError as e:
+            print(f"[HealthCheck] gRPC error: {e}")
+            return False
 
-        except Exception:
-            try:
-                if channel:
-                    future = grpc.channel_ready_future(channel)
-                    future.result(timeout=timeout)
-                    return True
-            except:
-                return False
-            finally:
-                if channel:
-                    channel.close()
-
-        return False
+        finally:
+            if channel:
+                channel.close()

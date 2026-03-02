@@ -1,6 +1,7 @@
 from models.devices_model import Device
-from configs.database import sessionLocal
+from configs.database import sessionLocal, get_db
 from datetime import datetime
+
 
 class DeviceOperations:
     def __init__(self):

@@ -23,6 +23,9 @@ ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/collectors
 
+
 COPY . .
+
+EXPOSE 50051
 
 CMD ["python", "main.py"]

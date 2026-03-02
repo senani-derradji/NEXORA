@@ -1,48 +1,45 @@
-import grpc, time
+import grpc
+import time
 import grpc_api.core_ingest_pb2 as core_ingest_pb2
 import grpc_api.core_ingest_pb2_grpc as core_ingest_pb2_grpc
 from utils.normalizer_helper import safe_float
 
 
 class CoreClient:
-    def __init__(self, host="localhost", port=50051):
+    def __init__(self, host, port):
         self.channel = grpc.insecure_channel(f"{host}:{port}")
         self.stub = core_ingest_pb2_grpc.CoreIngestStub(self.channel)
 
     def send_metric(self, metric):
-        if not metric: return False
 
-        metric_values={
-                "cpu": safe_float(metric.get("sys", {}).get("cpu")),
-                "ram": safe_float(metric.get("sys", {}).get("ram")),
-                "disk": safe_float(metric.get("sys", {}).get("disk")),
+        if not metric or not isinstance(metric, dict):
+            print("[Collector] Empty or invalid metric, skipping gRPC send.")
+            return {}
 
-                "in_bytes": safe_float(metric.get("net", {}).get("in_bytes")),
-                "out_bytes": safe_float(metric.get("net", {}).get("out_bytes")),
-                "in_packets": safe_float(metric.get("net", {}).get("in_packets")),
-                "out_packets": safe_float(metric.get("net", {}).get("out_packets")),
-                "in_errors": safe_float(metric.get("net", {}).get("in_errors")),
-                "out_errors": safe_float(metric.get("net", {}).get("out_errors")),
+        metric_values = {
+            "cpu": safe_float(metric.get("sys", {}).get("cpu")),
+            "ram": safe_float(metric.get("sys", {}).get("ram")),
+            "disk": safe_float(metric.get("sys", {}).get("disk")),
 
-                "packet_loss": safe_float(metric.get("net", {}).get("packet_loss")),
-                "latency": safe_float(metric.get("net", {}).get("latency")),
+            "in_bytes": safe_float(metric.get("net", {}).get("in_bytes")),
+            "out_bytes": safe_float(metric.get("net", {}).get("out_bytes")),
+            "in_packets": safe_float(metric.get("net", {}).get("in_packets")),
+            "out_packets": safe_float(metric.get("net", {}).get("out_packets")),
+            "in_errors": safe_float(metric.get("net", {}).get("in_errors")),
+            "out_errors": safe_float(metric.get("net", {}).get("out_errors")),
 
-                "timestamp": metric.get("timestamp", int(time.time()))
-            }
+            "packet_loss": safe_float(metric.get("net", {}).get("packet_loss")),
+            "latency": safe_float(metric.get("net", {}).get("latency")),
 
-        tags={
-                "device_type": metric.get("device", {}).get("device_type", "unknown"),
-                "ip": metric.get("device", {}).get("ip", "unknown"),
-                "mac": metric.get("device", {}).get("mac", "unknown"),
-                "status": metric.get("status", "unknown")
-            }
-        print(f"""
---------------------------------------------------------------------------------------------
-              hostname : {metric.get("device", {}).get("hostname", "unknown")}
-              metric_values : {metric_values}
-              tags : {tags}
---------------------------------------------------------------------------------------------
-              """)
+            "timestamp": metric.get("timestamp", int(time.time()))
+        }
+
+        tags = {
+            "device_type": metric.get("device", {}).get("device_type", "unknown"),
+            "ip": metric.get("device", {}).get("ip", "unknown"),
+            "mac": metric.get("device", {}).get("mac", "unknown"),
+            "status": metric.get("status", "unknown")
+        }
 
         proto = core_ingest_pb2.Metric(
             device_hostname=metric.get("device", {}).get("hostname", "unknown"),
@@ -53,11 +50,23 @@ class CoreClient:
 
         try:
             response = self.stub.SendMetric(proto, timeout=5)
-            print(f"[Collector] Metric Status : ", response.success)
-            return response.success
+            print(f"[Collector] Metric Status : {response.success}")
+
+            return {"success": response.success}
         except grpc.RpcError as e:
             print("[Collector] gRPC Error:", e)
-            return False
+            return {}
         except Exception as e:
             print("[Collector] Error:", e)
-            return False
+            return {}
+
+    def safe_send_metric(self, metric):
+        """
+        Wrapper to safely send metric.
+        Ensures that even invalid metrics won't break the gRPC server.
+        """
+        try:
+            return self.send_metric(metric) or {}
+        except Exception as e:
+            print("[Collector] Exception in safe_send_metric:", e)
+            return {}
