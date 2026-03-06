@@ -1,5 +1,5 @@
 from models.alerts_model import Alerts
-from configs.database import sessionLocal, get_db
+from config.db_config.database import sessionLocal
 from sqlalchemy.exc import SQLAlchemyError
 from operations.devices_ops import DeviceOperations
 

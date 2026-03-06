@@ -1,5 +1,5 @@
 from models.devices_model import Device
-from configs.database import sessionLocal, get_db
+from config.db_config.database import sessionLocal
 from datetime import datetime
 
 

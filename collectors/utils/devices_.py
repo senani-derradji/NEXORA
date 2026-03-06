@@ -4,7 +4,7 @@ import sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from configs.database import init_db, sessionLocal
+from config.db_config.database import init_db, sessionLocal
 from operations.devices_ops import DeviceOperations
 from models.devices_model import Device
 
@@ -53,7 +53,8 @@ class DeviceBootstrapper:
         yaml_devices = self._load_yaml_devices()
         db_devices = self._load_db_devices()
 
-        if not db_devices:
+
+        if not db_devices or not self.compare():
             for device in yaml_devices:
                 self.device_ops.create_device(
                     hostname=device["hostname"],
@@ -66,7 +67,5 @@ class DeviceBootstrapper:
 
             db_devices = self._load_db_devices()
 
-        if not self.compare():
-            print("MAC_ADDRESS mismatch between YAML and DB")
 
         return db_devices

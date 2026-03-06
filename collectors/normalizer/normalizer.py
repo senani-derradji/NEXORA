@@ -4,6 +4,7 @@ class Normalizer:
 
     @staticmethod
     def normalize(raw_metric):
+        print("INSIDE -- NORMALIZER : ", raw_metric)
         return {
             "device":
                 {

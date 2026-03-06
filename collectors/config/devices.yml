@@ -1,15 +1,7 @@
-# TESTING DATA
-
 devices:
 
-  - hostname: router01
-    ip_address: 192.168.1.1
+  - hostname: server1
+    ip_address: 172.18.0.9
     mac_address: A1:B2:C3:D4:E5:01
-    device_type: router
-    interval: 30
-
-  - hostname: server01
-    ip_address: 192.168.1.4
-    mac_address: A1:B2:C3:D4:E5:04
     device_type: server
-    interval: 30
+    interval: 5

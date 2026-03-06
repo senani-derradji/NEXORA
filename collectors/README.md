@@ -1,1 +1,4 @@
-# COLLECTORS 
+# COLLECTORS
+```
+add .env in ./configs
+```
