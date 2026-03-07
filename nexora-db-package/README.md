@@ -1,0 +1,228 @@
+# nexora_db
+
+**Shared database layer for the Nexora monitoring platform.**
+
+`nexora_db` is an installable Python package that provides a unified, reusable database interface for all Nexora services. It encapsulates SQLAlchemy models, database configuration, and CRUD operations for users, devices, and alerts — keeping your database logic in one place and out of your application code.
+
+---
+
+## Table of Contents
+
+- [Features](#features)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Project Structure](#project-structure)
+- [Usage](#usage)
+  - [Initialize the Database](#1-initialize-the-database)
+  - [Session Usage](#2-session-usage)
+  - [Users](#3-users)
+  - [Pydantic Schemas](#4-pydantic-schemas)
+- [Development](#development)
+---
+
+## Features
+
+- 🗄️ **Centralized database layer** — one package, shared across all Nexora microservices
+- 🔌 **PostgreSQL support** via `psycopg2-binary` and SQLAlchemy 2.0
+- 🧱 **SQLAlchemy ORM models** for Users, Devices, and Alerts
+- 📦 **Installable as a package** via `pip` or `pyproject.toml`
+
+---
+
+## Requirements
+
+- Python >= 3.9
+- PostgreSQL database instance
+
+---
+
+## Installation
+
+Install directly from source:
+
+```bash
+pip install .
+```
+
+Or install in editable/development mode:
+
+```bash
+pip install -e .
+```
+
+### Dependencies
+
+| Package | Version |
+|---|---|
+| SQLAlchemy | 2.0.43 |
+| psycopg2-binary | 2.9.11 |
+| python-dotenv | 1.1.1 |
+| pydantic | 2.11.7 |
+| pydantic-settings | 2.10.1 |
+
+---
+
+## Configuration
+
+`nexora_db` uses `pydantic-settings` to load configuration from environment variables or a `.env` file.
+
+Create a `.env` file in your project root:
+
+```env
+DATABASE_URL=postgresql://nexorauser:nexorapass@localhost:5432/nexora_db
+```
+
+> The `DATABASE_URL` environment variable must be set before importing any models or operations.
+
+---
+
+## Project Structure
+
+```
+nexora_db/
+├── __init__.py
+│
+├── configs/
+│   ├── __init__.py
+│   └── database.py          # Engine, session factory, Base declarative
+│
+├── models/
+│   ├── __init__.py
+│   ├── user.py              # User ORM model
+│   ├── devices_model.py     # Device ORM model
+│   └── alerts_model.py      # Alert ORM model
+│
+└── operations/
+    ├── __init__.py
+    ├── users_service.py     # User CRUD operations
+    ├── devices_ops.py       # Device CRUD operations
+    └── alerts_ops.py        # Alert CRUD operations
+```
+
+---
+
+## Usage
+
+### 1. Initialize the Database
+
+Before using any models or operations, call `init_database()` once at application startup with your PostgreSQL connection URL, then call `init_db_tables()` to create all tables.
+
+```python
+from nexora_db.configs.database import init_database, init_db_tables
+
+init_database("postgresql://user:password@localhost:5432/nexora_db") ; init_db_tables()
+```
+
+> `get_db()` and all operations will raise a `RuntimeError` if called before `init_database()`.
+
+---
+
+### 2. Session Usage
+
+`get_db()` is a generator — use it with `next()` or inside a dependency injection framework (e.g. FastAPI):
+
+```python
+from nexora_db.configs.database import get_db
+
+# Manual usage
+db = next(get_db())
+try:
+    # ... perform operations ...
+finally:
+    db.close()
+```
+
+```python
+# FastAPI dependency injection
+from fastapi import Depends
+from nexora_db.configs.database import get_db
+
+@app.get("/example")
+def example_route(db=Depends(get_db)):
+    ...
+```
+
+---
+
+### 3. Users
+
+`UserOperations` wraps all user-related database logic. Instantiate it after `init_database()` has been called.
+
+```python
+import time
+from nexora_db.configs.database import init_database, init_db_tables
+from nexora_db.operations.users_service import UserOperations
+
+# --- Database Setup ---
+DATABASE_URL = "postgresql+psycopg2://nexorauser:nexorapass@localhost:5432/nexoradb"
+init_database(DATABASE_URL) ; init_db_tables()
+
+# --- Initialize Operation Classes ---
+user_ops = UserOperations()
+
+# Create a new user
+user = user_ops.create_user(
+    email="alice@example.com",
+    hashed_password="hashed_secret"
+)
+
+# Fetch by email
+user = user_ops.get_user_by_email("alice@example.com")
+
+# Fetch all users
+users = user_ops.get_all_users()
+
+# Update a user
+updated = user_ops.update_user(user_id=1, data=UserCreate(email="new@example.com", password="new_hash"))
+
+# Delete a user
+deleted = user_ops.delete_user(user_id=1)
+
+# Extract username from email
+username = UserUtils.get_username_from_email("derradji@example.com")
+```
+
+---
+
+### 4. Pydantic Schemas
+
+`nexora_db` ships with Pydantic v2 schemas for input validation and API serialization.
+
+```python
+from nexora_db.schema.validator import UserCreate, UserOut, DeviceCreateForm, DeviceUpdateForm
+
+# Validate user input
+payload = UserCreate(email="derradji@example.com", password="secret123")
+
+# Validate device registration
+device_form = DeviceCreateForm(
+    hostname="router-01",
+    device_type="router",
+    ip_address="192.168.1.1",
+    mac_address="AA:BB:CC:DD:EE:FF"
+)
+
+update_form = DeviceUpdateForm(ip_address="10.0.0.5")
+```
+
+**Available schemas:**
+
+| Schema | Purpose |
+|---|---|
+| `UserCreate` | Email + password for creating/updating a user |
+| `UserOut` | Serialized user response (id, email, role) |
+| `DeviceCreateForm` | Full device registration payload |
+| `DeviceUpdateForm` | Partial device update (all fields optional) |
+
+---
+
+## Development
+
+Clone the repository and install in editable mode:
+
+```bash
+git clone https://github.com/senani-derradji/NEXORA/nexora_db
+cd nexora_db
+pip install -e .
+```
