@@ -2,7 +2,6 @@ from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.orm import relationship
 from nexora_db.configs.database import base
 from datetime import datetime
-from sqlalchemy.orm import validates
 
 
 class Device(base):
@@ -18,9 +17,3 @@ class Device(base):
     last_seen = Column(DateTime, default=datetime.utcnow())
 
     alerts_device = relationship("Alerts", back_populates="device", cascade="all, delete-orphan")
-
-    @validates("mac_address")
-    def validate_mac(self, key, value):
-        if self.mac_address is not None:
-            raise ValueError("mac_address cannot be changed once set")
-        return value
