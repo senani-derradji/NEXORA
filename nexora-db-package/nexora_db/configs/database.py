@@ -29,6 +29,9 @@ def get_db():
 
 
 def init_db_tables():
+    import nexora_db.models
+
     if engine is None:
         raise RuntimeError("Database not initialized.")
+
     base.metadata.create_all(bind=engine)
