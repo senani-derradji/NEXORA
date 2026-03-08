@@ -4,11 +4,10 @@ class Normalizer:
 
     @staticmethod
     def normalize(raw_metric):
-        print("INSIDE -- NORMALIZER : ", raw_metric)
         return {
             "device":
                 {
-                    "hostname": raw_metric.get("device_host", "unknown"),
+                    "hostname": raw_metric.get("hostname", "unknown"),
                     "device_type": raw_metric.get("device_type", "unknown"),
                     "ip": raw_metric.get("device_ip", "unknown"),
                     "mac": raw_metric.get("device_mac", "unknown")

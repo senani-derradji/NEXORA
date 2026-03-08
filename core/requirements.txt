@@ -1,24 +1,14 @@
 SQLAlchemy==2.0.43
 psycopg2-binary==2.9.11
-APScheduler==3.11.0
-PyYAML==6.0.2
-aiofiles==23.2.1
-anyio==4.10.0
-async-timeout==5.0.1
-httpx==0.28.1
 requests==2.32.5
 python-dotenv==1.1.1
-python-crontab==3.3.0
-watchdog==4.0.2
+pydantic==2.11.7
+influxdb-client==1.50.0
 
 grpcio==1.78.0
 grpcio-tools==1.78.0
 grpcio-health-checking==1.78.0
 grpcio-reflection==1.78.0
 protobuf==6.33.1
-
-
-pysnmp==4.4.12
-pyasn1==0.4.8
 
 nexora-db==0.2.5

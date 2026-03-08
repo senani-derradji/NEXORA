@@ -1,5 +1,4 @@
-import grpc
-import time
+import grpc, time
 import grpc_api.core_ingest_pb2 as core_ingest_pb2
 import grpc_api.core_ingest_pb2_grpc as core_ingest_pb2_grpc
 from utils.normalizer_helper import safe_float
@@ -35,6 +34,7 @@ class CoreClient:
         }
 
         tags = {
+            "hostname": metric.get("device", {}).get("hostname", "unknown"),
             "device_type": metric.get("device", {}).get("device_type", "unknown"),
             "ip": metric.get("device", {}).get("ip", "unknown"),
             "mac": metric.get("device", {}).get("mac", "unknown"),
@@ -51,20 +51,18 @@ class CoreClient:
         try:
             response = self.stub.SendMetric(proto, timeout=5)
             print(f"[Collector] Metric Status : {response.success}")
-
             return {"success": response.success}
+
         except grpc.RpcError as e:
             print("[Collector] gRPC Error:", e)
             return {}
+
         except Exception as e:
             print("[Collector] Error:", e)
             return {}
 
     def safe_send_metric(self, metric):
-        """
-        Wrapper to safely send metric.
-        Ensures that even invalid metrics won't break the gRPC server.
-        """
+
         try:
             return self.send_metric(metric) or {}
         except Exception as e:

@@ -1,13 +1,14 @@
 import asyncio
-# from engines.engine_virtual import VirtualEngine
-from engines.snmp_collector import SNMPConfig, SNMPMonitor
-# from scheduler.heartbeat import DeviceHeartbeat
+from engines.snmp_engine.snmp_collector import SNMPConfig, SNMPMonitor
 from normalizer.normalizer import Normalizer
-# from utils.default_data import down_metric
+from scheduler.heartbeat import DeviceHeartbeat
+from utils.default_data import down_metric
 from transport.check_core_health import CoreHealth
 from buffer.buffer_manager import BufferManager
 from transport.grpc_client import CoreClient
 from utils.devices_ import DeviceBootstrapper
+from engines.snmp_engine.utils.detect_vendor import detect_vendor
+from engines.snmp_engine.utils.detect_type import detect_device_type
 
 
 class Scheduler:
@@ -25,10 +26,13 @@ class Scheduler:
         self.config = SNMPConfig(community="public", port=161, timeout=2, retries=1, mp_model=1)
         self.snmp_collector = SNMPMonitor(config=self.config)
         self.CoreClient = CoreClient(host=self.host, port=self.port)
+
+
         self.tasks = {}
 
     async def run_device(self, device):
         interval = device.get("interval", 5)
+
         while True:
             # alive = DeviceHeartbeat.is_alive(device["hostname"])
             # if not alive:
@@ -40,7 +44,6 @@ class Scheduler:
                 ip=device["ip_address"],
                 mac_placeholder=device["mac_address"]
                 )
-                print("COLLECTOR RAW : ", raw_metrics)
 
                 if raw_metrics.get("latency") and raw_metrics.get("latency") > 200 or \
                     raw_metrics.get("packet_loss") and raw_metrics.get("packet_loss") > 5 or \
@@ -51,10 +54,25 @@ class Scheduler:
 
                 normalized = Normalizer.normalize(raw_metrics)
 
+                self.sys_object_id = self.snmp_collector.snmp_get(ip=device["ip_address"], oid=self.snmp_collector.OID_SYS_OBJECT_ID)
+
+                vendor = detect_vendor(self.sys_object_id)
+                device_type = detect_device_type(self.sys_object_id)
+
+                print(f"""
+
+                      ------------------------------
+                      {device['hostname']}
+                      ------------------------------
+                      vendor : {vendor}
+                      device type : {device_type}
+                      ------------------------------
+
+                      """)
+
                 if CoreHealth.check(host=self.host, port=self.port, timeout=3):
                     self.buffer.push_data(metric=normalized, status=True)
                     get = self.buffer.pop_data()
-                    print("COLLECTOR METRIC : ", get)
 
                     resp = self.CoreClient.send_metric(metric=get)
 

@@ -4,68 +4,91 @@ import sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from config.db_config.database import init_db, sessionLocal
-from operations.devices_ops import DeviceOperations
-from models.devices_model import Device
+from sqlalchemy.exc import IntegrityError
 
+from collectors.config.db_config.database import init
+from nexora_db.operations.devices_ops import DeviceOperations
+
+init(url_env="DATABASE_URL")
 
 class DeviceBootstrapper:
+
     def __init__(self, yaml_path: str):
         self.yaml_path = yaml_path
         self.device_ops = DeviceOperations()
 
+
     def _load_yaml_devices(self):
+
         if not os.path.exists(self.yaml_path):
             return []
+
         with open(self.yaml_path, "r") as f:
-            return (yaml.safe_load(f) or {}).get("devices", [])
+            data = yaml.safe_load(f) or {}
+
+        return data.get("devices", [])
+
 
     def _load_db_devices(self):
-        db = sessionLocal()
-        try:
-            devices = db.query(Device).all()
-            return [
-                {
-                    "hostname": d.hostname,
-                    "device_type": d.device_type,
-                    "ip_address": d.ip_address,
-                    "mac_address": d.mac_address,
-                    "status": d.status,
-                    "interval": d.interval,
-                }
-                for d in devices
-            ]
-        finally:
-            db.close()
+
+        devices = self.device_ops.get_all_devices()
+
+        return [
+            {
+                "hostname": d.hostname,
+                "device_type": d.device_type,
+                "ip_address": d.ip_address,
+                "mac_address": d.mac_address,
+                "status": d.status,
+                "interval": d.interval,
+            }
+            for d in devices
+        ]
+
 
     def compare(self):
+
         yaml_devices = self._load_yaml_devices()
         db_devices = self._load_db_devices()
 
-        yaml_set = {d["mac_address"] for d in yaml_devices}
-        db_set = {d["mac_address"] for d in db_devices}
+        yaml_macs = {d["mac_address"] for d in yaml_devices}
+        db_macs = {d["mac_address"] for d in db_devices}
 
-        return yaml_set == db_set
+        print(yaml_macs == db_macs, " COMPARED (TRUE = SAME , FALSE = DIFFERENT)")
+
+        return yaml_macs == db_macs
+
 
     def check_dbs_exists_and_matched_with_yaml(self):
-        init_db()
 
         yaml_devices = self._load_yaml_devices()
         db_devices = self._load_db_devices()
+        
+        db_macs = {d["mac_address"] for d in db_devices}
 
+        if self.compare():
+            return db_devices
 
-        if not db_devices or not self.compare():
-            for device in yaml_devices:
+        for device in yaml_devices:
+
+            if device["mac_address"] in db_macs:
+                continue
+
+            try:
+
                 self.device_ops.create_device(
                     hostname=device["hostname"],
                     device_type=device["device_type"],
                     ip_address=device["ip_address"],
                     mac_address=device["mac_address"],
                     status="START",
-                    interval=device.get("interval"),
+                    interval=device.get("interval", 5),
                 )
 
-            db_devices = self._load_db_devices()
+                print(f"[BOOTSTRAP] Added device {device['hostname']}")
 
+            except IntegrityError:
 
-        return db_devices
+                print(f"[BOOTSTRAP] Device already exists: {device['hostname']}")
+
+        return self._load_db_devices()

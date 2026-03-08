@@ -5,7 +5,7 @@
 *.db-journal
 
 # Private Folders/Files
-.env
+
 *venv
 __pycache__
 *cache
@@ -13,7 +13,8 @@ __pycache__
 .pytest_cache
 *venv
 influx_env
-
+virtual*
 
 # special files
 dz.py
+.vscode

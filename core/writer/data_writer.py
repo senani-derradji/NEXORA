@@ -1,18 +1,19 @@
-import os, sys ; sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+import os, sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from time_series.writers.device_health_writer import WriteHealthStatus
-from core.writer.metadata_writer import DeviceMetadata
-from relational.operations.devices_ops import DeviceOperations
+from datetime import datetime
+
+from core.time_series.writers.device_health_writer import WriteHealthStatus
+from core.configs.database import init ; init()
+from nexora_db.operations.devices_ops import DeviceOperations
 from core.alert_engine.CoreAlertEngine import AlertEngine
 
 
 class CoreWriter:
 
     def __init__(self):
-        self.metadata = DeviceMetadata()
         self.deviceOPS = DeviceOperations()
         self.alertEngine = AlertEngine()
-
 
     def write_in_db(self, metric):
 
@@ -22,19 +23,39 @@ class CoreWriter:
 
         payload = {
             "hostname": metric.get("hostname"),
-            "device_type": metric.get("type") or "unknown",
+            "device_type": metric.get("device_type") or "unknown",
             "ip_address": metric.get("ip_address"),
             "mac_address": metric.get("mac_address"),
             "status": metric.get("status"),
         }
 
-        self.deviceOPS.create_device(
-            hostname=payload["hostname"],
-            device_type=payload.get("device_type", "unknown"),
-            ip_address=payload["ip_address"],
-            mac_address=payload["mac_address"],
-            status=payload["status"]
-        )
+        print(f"""
+
+PAYLOAD ::::
+{payload}
+
+              """)
+
+        device = self.deviceOPS.get_device_by_ip(ip_address=payload["ip_address"])
+
+        if device is None:
+
+            self.deviceOPS.create_device(
+                hostname=payload["hostname"],
+                device_type=payload["device_type"],
+                ip_address=payload["ip_address"],
+                mac_address=payload["mac_address"],
+                status=payload["status"]
+            )
+
+        else:
+            print("DEVICE EXISTS (not none)")
+            self.deviceOPS.update_device_status(
+                ip_address=payload["ip_address"],
+                status=payload["status"],
+                last_seen=datetime.utcnow()
+            )
+
         self.alertEngine.Engine(
             status=payload["status"],
             hostname=payload["hostname"],
@@ -56,12 +77,12 @@ class CoreWriter:
 
 
         result = WriteHealthStatus(
+
             dv_name=metric.get("hostname"),
             dv_ip=metric.get("ip_address"),
             dv_mac=metric.get("mac_address"),
             status=metric.get("status"),
             type_=metric.get("device_type"),
-
 
             cpu_usage=metric.get("cpu"),
             ram_usage=metric.get("ram"),
@@ -78,7 +99,9 @@ class CoreWriter:
             packet_loss_percent=metric.get("packet_loss_percent"),
 
             st=metric.get("site")
+
         )
 
-        return result
+        print(result)
 
+        return result

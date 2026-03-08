@@ -27,7 +27,7 @@ class DatabaseBuffer:
         self.session.add(b_m); self.session.commit(); self.session.close()
         return True
 
-    def fetch_unsent(self, limit=100):
+    def fetch_unsent(self, limit=1000):
         session = self.Session()
         rows = session.execute(Select(SqlMetrics).where(SqlMetrics.sent == False).limit(limit)).scalars().all() ; session.close()
         if not rows: return False

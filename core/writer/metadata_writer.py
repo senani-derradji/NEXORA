@@ -1,6 +1,6 @@
 import os, sys ; sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
-
-from relational.operations.devices_ops import DeviceOperations
+from core.configs.database import init ; init()
+from nexora_db.operations.devices_ops import DeviceOperations
 
 
 class DeviceMetadata:
@@ -10,7 +10,6 @@ class DeviceMetadata:
 
     def write_device_metadata(self, payload):
         if not payload:
-            print("INSIDE WRITE DEVICE METADATA : PAYLOAD IS EMPTY")
             return False
 
         hostname = payload.get("hostname")
@@ -18,9 +17,6 @@ class DeviceMetadata:
         ip_address = payload.get("ip_address")
         mac_address = payload.get("mac_address")
         status = payload.get("status")
-
-        print(hostname, device_type, ip_address, mac_address, status)
-
 
         self.deviceOPS.create_device(
             hostname=hostname,

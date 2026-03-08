@@ -1,0 +1,225 @@
+version: "3.9"
+services:
+
+  v_lab_linux:
+    build:
+      context: ./v_lab/linux_
+      dockerfile: Dockerfile
+    container_name: linux
+    ports:
+      - "161"
+
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.9
+
+
+  v_lab_windows:
+    build:
+      context: ./v_lab/win_
+      dockerfile: Dockerfile
+    container_name: windows
+    ports:
+      - "161"
+
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.8
+
+
+  v_lab_micro_router:
+    build:
+      context: ./v_lab/micro_router
+      dockerfile: Dockerfile
+    container_name: m_router
+    ports:
+      - "161"
+
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.7
+
+
+  v_lab_micro_switch:
+    build:
+      context: ./v_lab/micro_switch
+      dockerfile: Dockerfile
+    container_name: m_switch
+    ports:
+      - "161"
+
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.6
+
+
+  v_lab_fortinet_firewall:
+    build:
+      context: ./v_lab/fortinet_firewall
+      dockerfile: Dockerfile
+    container_name: f_firewall
+    ports:
+      - "161"
+
+  v_lab_linux_2:
+    build:
+      context: ./v_lab/linux_
+      dockerfile: Dockerfile
+    container_name: linux_2
+    ports:
+      - "161"
+
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.5
+
+  v_lab_linux_3:
+    build:
+      context: ./v_lab/linux_
+      dockerfile: Dockerfile
+    container_name: linux_3
+    ports:
+      - "161"
+
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.4
+
+  v_lab_linux_4:
+    build:
+      context: ./v_lab/linux_
+      dockerfile: Dockerfile
+    container_name: linux_4
+    ports:
+      - "161"
+
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.3
+
+
+  influxdb:
+    image: influxdb:2
+    container_name: influxdb
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    environment:
+      - INFLUXDB_ADMIN_USER=admin
+      - INFLUXDB_ADMIN_PASSWORD=admin123
+      - INFLUXDB_DB=mydb
+      - INFLUXDB_ORG=myorg
+      - INFLUXDB_BUCKET=dr_test
+      - INFLUXDB_INIT_ADMIN_TOKEN=mytoken1234567890
+    volumes:
+      - influxdb2-data:/var/lib/influxdb2
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-H", "Authorization: Token mytoken1234567890", "http://localhost:8086/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.10
+
+    # mem_limit: 256m
+    # cpus: 0.3
+
+
+  postgres:
+    image: postgres:16
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexorauser -d nexoradb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=nexorauser
+      - POSTGRES_PASSWORD=nexorapass
+      - POSTGRES_DB=nexoradb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init_postgres.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.20
+
+    # mem_limit: 256m
+    # cpus: 0.3
+
+
+  core:
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    container_name: core
+    ports:
+      - "50051:50051"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.30
+
+    # mem_limit: 256m
+    # cpus: 0.3
+
+
+  collectors:
+    build:
+      context: ./collectors
+      dockerfile: Dockerfile
+    container_name: collectors
+    ports:
+      - "50052:50051"
+    depends_on:
+      - postgres
+      - core
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.40
+
+    # mem_limit: 256m
+    # cpus: 0.3
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - core
+      - collectors
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.50
+
+    # mem_limit: 256m
+    # cpus: 0.3
+
+volumes:
+  influxdb2-data:
+  postgres_data:
+
+
+networks:
+  my_shared_network:
+    external: true
+    name: my_shared_network
