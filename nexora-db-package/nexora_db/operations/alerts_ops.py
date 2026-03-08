@@ -6,79 +6,102 @@ from nexora_db.configs.database import get_db
 class AlertOperations:
 
     def __init__(self):
-        self.session = next(get_db())
         self.device_ops = DeviceOperations()
 
+
     def create_alert(self, alert_message, alert_level, device_id):
+        session = next(get_db())
         try:
             alert = Alerts(
                 alert_message=alert_message,
                 alert_level=alert_level,
                 device_id=device_id,
             )
-            self.session.add(alert)
-            self.session.commit()
+
+            session.add(alert)
+            session.commit()
+            session.refresh(alert)
+
             return alert
+
         except Exception as e:
-            self.session.rollback()
+            session.rollback()
             raise e
+
         finally:
-            self.session.close()
+            session.close()
+
 
     def get_all_alerts(self):
+        session = next(get_db())
         try:
-            return self.session.query(Alerts).all()
-        except Exception as e:
-            raise e
+            return session.query(Alerts).all()
         finally:
-            self.session.close()
+            session.close()
+
 
     def get_all_alerts_by_type(self, alert_level):
+        session = next(get_db())
         try:
-            alerts_by_type = self.session.query(Alerts).filter(Alerts.alert_level == alert_level).all()
-            if not alerts_by_type:
-                return False
-            return alerts_by_type
-        except Exception as e:
-            raise e
+            alerts = session.query(Alerts).filter(Alerts.alert_level == alert_level).all()
+            return alerts if alerts else False
         finally:
-            self.session.close()
+            session.close()
+
 
     def get_alerts_by_device_hostname(self, hostname: str):
-        try:
-            alerts = self.device_ops.get_device_by_hostname(hostname).alerts_device
-            if not alerts:
-                return False
-            return alerts
-        except Exception as e:
-            raise e
-        finally:
-            self.session.close()
-
-    def delete_alert(self, alert_id: int):
-        try:
-            alert = self.session.query(Alerts).filter(Alerts.id == alert_id).first()
-            if not alert:
-                return False
-            self.session.delete(alert)
-            self.session.commit()
-            return True
-        except Exception as e:
-            self.session.rollback()
-            raise e
-        finally:
-            self.session.close()
-
-    def delete_alerts_by_device_hostname(self, hostname: str):
+        session = next(get_db())
         try:
             device = self.device_ops.get_device_by_hostname(hostname)
+
             if not device:
                 return False
-            self.session.query(Alerts).filter(Alerts.device_id == device.id).delete()
-            self.session.commit()
-            return True
-        except Exception as e:
-            self.session.rollback()
-            raise e
+
+            alerts = session.query(Alerts).filter(Alerts.device_id == device.id).all()
+
+            return alerts if alerts else False
+
         finally:
-            self.session.close()
+            session.close()
+
+
+    def delete_alert(self, alert_id: int):
+        session = next(get_db())
+        try:
+            alert = session.query(Alerts).filter(Alerts.id == alert_id).first()
+
+            if not alert:
+                return False
+
+            session.delete(alert)
+            session.commit()
+
+            return True
+
+        except Exception as e:
+            session.rollback()
+            raise e
+
+        finally:
+            session.close()
+
+
+    def delete_alerts_by_device_hostname(self, hostname: str):
+        session = next(get_db())
+        try:
+            device = self.device_ops.get_device_by_hostname(hostname)
+
+            if not device:
+                return False
+
+            session.query(Alerts).filter(Alerts.device_id == device.id).delete()
+            session.commit()
+
+            return True
+
+        except Exception as e:
+            session.rollback()
+            raise e
+
+        finally:
+            session.close()

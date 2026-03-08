@@ -6,67 +6,84 @@ import re
 
 class UserOperations:
 
-    def __init__(self):
-        self.db = next(get_db())
-
     def create_user(self, email: str, hashed_password: str):
+        db = next(get_db())
         try:
             user = User(email=email, hashed_password=hashed_password)
-            self.db.add(user)
-            self.db.commit()
-            self.db.refresh(user)
+
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
             return user
+
         except Exception as e:
-            self.db.rollback()
+            db.rollback()
             raise e
+
         finally:
-            self.db.close()
+            db.close()
+
 
     def get_user_by_email(self, email: str):
+        db = next(get_db())
         try:
-            return self.db.query(User).filter(User.email == email).first()
-        except Exception as e:
-            raise e
+            return db.query(User).filter(User.email == email).first()
         finally:
-            self.db.close()
+            db.close()
+
 
     def get_all_users(self):
+        db = next(get_db())
         try:
-            return self.db.query(User).all()
-        except Exception as e:
-            raise e
+            return db.query(User).all()
         finally:
-            self.db.close()
+            db.close()
+
 
     def delete_user(self, user_id: int):
+        db = next(get_db())
         try:
-            user = self.db.query(User).filter(User.id == user_id).first()
+            user = db.query(User).filter(User.id == user_id).first()
+
             if not user:
                 return None
-            self.db.delete(user)
-            self.db.commit()
+
+            db.delete(user)
+            db.commit()
+
             return user
+
         except Exception as e:
-            self.db.rollback()
+            db.rollback()
             raise e
+
         finally:
-            self.db.close()
+            db.close()
+
 
     def update_user(self, user_id: int, data: UserCreate):
+        db = next(get_db())
         try:
-            user = self.db.query(User).filter(User.id == user_id).first()
+            user = db.query(User).filter(User.id == user_id).first()
+
             if not user:
                 return None
+
             user.email = data.email
             user.hashed_password = data.password
-            self.db.commit()
-            self.db.refresh(user)
+
+            db.commit()
+            db.refresh(user)
+
             return user
+
         except Exception as e:
-            self.db.rollback()
+            db.rollback()
             raise e
+
         finally:
-            self.db.close()
+            db.close()
 
 
 class UserUtils:
@@ -87,4 +104,4 @@ class UserUtils:
         if not UserUtils.EMAIL_PATTERN.match(email):
             raise ValueError(f"Invalid email format: {email!r}")
 
-        return email.split("@")[0].lower()
+        return email.split("@")[0].lower().strip()
