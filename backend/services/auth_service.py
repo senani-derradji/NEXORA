@@ -1,8 +1,6 @@
-import os, sys ; sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
-
-from backend.security.password import hash_password, verify_password
-from backend.security.jwt import create_access_token
-from relational.operations.users_service import UserOperations
+from security.password import hash_password, verify_password
+from security.jwt import create_access_token
+from nexora_db.operations.users_service import UserOperations
 
 user_operations = UserOperations()
 

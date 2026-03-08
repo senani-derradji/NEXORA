@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from backend.security.jwt import get_current_user, require_role
+from security.jwt import get_current_user, require_role
 
 router = APIRouter()
 

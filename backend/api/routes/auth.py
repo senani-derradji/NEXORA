@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from relational.configs.database import get_db
-from backend.schema.validator import UserCreate
-from backend.services.auth_service import register_user, authenticate_user, login_user
+from nexora_db.configs.database import get_db
+from nexora_db.schema.validator import UserCreate
+from services.auth_service import register_user, authenticate_user, login_user
 from fastapi.security import OAuth2PasswordRequestForm
-from relational.operations.users_service import UserUtils
+from nexora_db.operations.users_service import UserUtils
 
 router = APIRouter()
 

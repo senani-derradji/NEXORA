@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
-from relational.operations.devices_ops import DeviceOperations
-from backend.security.jwt import require_role
-from backend.schema.validator import DeviceUpdateForm, DeviceCreateForm
-
+from nexora_db.operations.devices_ops import DeviceOperations
+from security.jwt import require_role
+from nexora_db.schema.validator import DeviceUpdateForm, DeviceCreateForm
+from config import init ; init(url_env="DATABASE_URL")
 
 device_ops = DeviceOperations()
 router = APIRouter()
