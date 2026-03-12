@@ -128,10 +128,7 @@ NEXORA is a self-hosted, containerised observability stack built around industry
 | `v_lab_micro_switch` | `m_switch` | `172.18.0.6` | `161` | Virtual lab: MikroTik switch |
 | `v_lab_fortinet_firewall` | `f_firewall` | — | `161` | Virtual lab: Fortinet firewall |
 
-**Network:** All services share `my_shared_network` — a pre-created external overlay (`172.18.0.0/24`). Create it once before starting:
-```bash
-docker network create --subnet=172.18.0.0/24 my_shared_network
-```
+**Network:** All services share `my_shared_network` — an overlay (`172.18.0.0/24`) that is created automatically by `docker compose`. If you need to pre-create it manually, run `./docker/create_network.sh` (or `.bat`).
 
 **Volumes:**
 | Volume | Mounts to | Purpose |
@@ -152,8 +149,8 @@ influxdb (healthy) ──┤──► core ─────┐
 ### Running the Full Stack
 
 ```bash
-# 1. Create the shared network (once)
-docker network create --subnet=172.18.0.0/24 my_shared_network
+.env
+# Edit .env and enter your secure passwords/tokens
 
 # 2. Start everything
 docker compose -f docker_compose_full.yml up --build
@@ -176,12 +173,14 @@ open http://localhost:8086
 
 ```
 NEXORA/
+├── .env         # Template for all infrastructure secrets
 ├── backend/             # FastAPI REST API (auth, devices, alerts)
 ├── collectors/          # SNMP collector service
 ├── core/                # gRPC ingest, processing, alerting, InfluxDB write
 ├── nexora-db-package/   # Shared SQLAlchemy ORM package (published to PyPI)
 ├── docker/
-│   └── init_postgres.sql  # PostgreSQL user & DB initialisation script
+│   ├── init_postgres.sh   # Dynamic PostgreSQL DB/user permission script
+│   └── create_network.*   # Helper scripts for manual network creation
 ├── v_labs/              # Virtual lab device simulators (SNMP-enabled containers)
 └── docker_compose_full.yml
 ```
