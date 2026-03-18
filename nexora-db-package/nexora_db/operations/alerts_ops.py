@@ -3,7 +3,11 @@ from nexora_db.operations.devices_ops import DeviceOperations
 from nexora_db.configs.database import get_db
 from datetime import datetime, timezone
 from sqlalchemy import desc
+import logging
 
+# Setup logger
+logger = logging.getLogger('nexora_db.alerts')
+logger.setLevel(logging.INFO)
 
 class AlertOperations:
 
@@ -14,6 +18,8 @@ class AlertOperations:
     def create_alert(self, alert_message, alert_level, device_id):
         session = next(get_db())
         try:
+            logger.info(f"Creating alert: message={alert_message}, level={alert_level}, device_id={device_id}")
+
             alert = Alerts(
                 alert_message=alert_message,
                 alert_level=alert_level,
@@ -25,9 +31,13 @@ class AlertOperations:
             session.commit()
             session.refresh(alert)
 
+            logger.info(f"Alert created successfully: id={alert.id}, alert_time={alert.alert_time}")
             return alert
 
         except Exception as e:
+            logger.error(f"Error creating alert: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
             session.rollback()
             raise e
 

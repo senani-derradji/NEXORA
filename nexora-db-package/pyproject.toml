@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nexora_db"
-version = "0.2.7"
+version = "0.2.8"
 description = "Shared database layer for Nexora monitoring platform"
 authors = [
     { name = "Derradji Senani" }
