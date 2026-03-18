@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime
 from nexora_db.configs.database import base
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class User(base):
@@ -10,5 +10,5 @@ class User(base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     role = Column(String, default="viewer")
-    last_seen = Column(DateTime, default=datetime.utcnow())
+    last_seen = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 

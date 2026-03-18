@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.orm import relationship
 from nexora_db.configs.database import base
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class Device(base):
@@ -14,6 +14,6 @@ class Device(base):
     mac_address = Column(String(30) , unique=True, nullable=False)
     status = Column(String(10))
     interval = Column(Integer, default=5)
-    last_seen = Column(DateTime, default=datetime.utcnow())
+    last_seen = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     alerts_device = relationship("Alerts", back_populates="device", cascade="all, delete-orphan")

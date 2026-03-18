@@ -1,7 +1,7 @@
 from nexora_db.models.alerts_model import Alerts
 from nexora_db.operations.devices_ops import DeviceOperations
 from nexora_db.configs.database import get_db
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import desc
 
 
@@ -18,7 +18,7 @@ class AlertOperations:
                 alert_message=alert_message,
                 alert_level=alert_level,
                 device_id=device_id,
-                alert_time=datetime.utcnow(),  # Set timestamp explicitly for each alert
+                alert_time=datetime.now(timezone.utc),  # Set timestamp explicitly for each alert (UTC)
             )
 
             session.add(alert)
@@ -162,8 +162,8 @@ class AlertOperations:
         """
         session = next(get_db())
         try:
-            from datetime import timedelta
-            time_threshold = datetime.now() - timedelta(minutes=minutes)
+            from datetime import timedelta, timezone
+            time_threshold = datetime.now(timezone.utc) - timedelta(minutes=minutes)
 
             existing = session.query(Alerts).filter(
                 Alerts.device_id == device_id,

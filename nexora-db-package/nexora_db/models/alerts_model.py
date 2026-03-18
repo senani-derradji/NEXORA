@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from nexora_db.configs.database import base
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class Alerts(base):

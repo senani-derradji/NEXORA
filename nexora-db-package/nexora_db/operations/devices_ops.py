@@ -1,10 +1,10 @@
 from nexora_db.models.devices_model import Device
 from nexora_db.configs.database import get_db
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class DeviceOperations:
-    
+
     def create_device(self, hostname, device_type, ip_address, mac_address, status="START", interval=None):
         session = next(get_db())
         try:
@@ -13,7 +13,7 @@ class DeviceOperations:
             if device:
                 if device.status != status:
                     device.status = status
-                    device.last_seen = datetime.utcnow()
+                    device.last_seen = datetime.now(timezone.utc)
                     session.commit()
                     session.refresh(device)
                 return device
@@ -25,7 +25,7 @@ class DeviceOperations:
                 mac_address=mac_address,
                 status=status,
                 interval=interval,
-                last_seen=datetime.utcnow()
+                last_seen=datetime.now(timezone.utc)
             )
 
             session.add(device)
@@ -81,7 +81,7 @@ class DeviceOperations:
             if not device:
                 return None
 
-            device.last_seen = datetime.utcnow()
+            device.last_seen = datetime.now(timezone.utc)
             session.commit()
             session.refresh(device)
 
@@ -104,7 +104,7 @@ class DeviceOperations:
                 return None
 
             device.status = status
-            device.last_seen = last_seen or datetime.utcnow()
+            device.last_seen = last_seen or datetime.now(timezone.utc)
 
             session.commit()
             session.refresh(device)
