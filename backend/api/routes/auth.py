@@ -5,6 +5,7 @@ from nexora_db.schema.validator import UserCreate
 from services.auth_service import register_user, authenticate_user, login_user
 from fastapi.security import OAuth2PasswordRequestForm
 from nexora_db.operations.users_service import UserUtils
+from security.jwt import get_current_user
 
 router = APIRouter()
 
@@ -24,5 +25,19 @@ def login(form_data = Depends(OAuth2PasswordRequestForm), db: Session = Depends(
 
     return {
             "access_token": f"{token}",
-            "token_type": "bearer"
+            "token_type": "bearer",
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "role": user.role
             }
+            }
+
+@router.get("/check-auth")
+def check_auth(current_user: dict = Depends(get_current_user)):
+    """Check if user is authenticated"""
+    return {
+        "authenticated": True,
+        "username": current_user.get("email"),
+        "role": current_user.get("role")
+    }

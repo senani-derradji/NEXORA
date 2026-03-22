@@ -1,12 +1,16 @@
 import os, sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from core.time_series.writers.device_health_writer import WriteHealthStatus
 from core.configs.database import init ; init()
 from nexora_db.operations.devices_ops import DeviceOperations
 from core.alert_engine.CoreAlertEngine import AlertEngine
+from core.utils.logger import setup_logger
+
+# Setup logger
+logger = setup_logger('core.writer', level=20)
 
 
 class CoreWriter:
@@ -14,11 +18,13 @@ class CoreWriter:
     def __init__(self):
         self.deviceOPS = DeviceOperations()
         self.alertEngine = AlertEngine()
+        logger.info("CoreWriter initialized")
 
     def write_in_db(self, metric):
+        logger.debug(f"write_in_db called with metric: {metric}")
 
         if metric is None:
-            print("METRIC IS NONE")
+            logger.warning("METRIC IS NONE - skipping write")
             return None
 
         payload = {
@@ -28,6 +34,8 @@ class CoreWriter:
             "mac_address": metric.get("mac_address"),
             "status": metric.get("status"),
         }
+
+        logger.debug(f"Payload prepared: {payload}")
 
         print(f"""
 
@@ -53,7 +61,7 @@ PAYLOAD ::::
             self.deviceOPS.update_device_status(
                 ip_address=payload["ip_address"],
                 status=payload["status"],
-                last_seen=datetime.utcnow()
+                last_seen=datetime.now(timezone.utc)
             )
 
         self.alertEngine.Engine(
@@ -65,7 +73,7 @@ PAYLOAD ::::
             disk=metric.get("disk"),
 
             latency=metric.get("latency"),
-            packet_loss_percent=metric.get("packet_loss_percent"),
+            packet_loss_percent=metric.get("packet_loss"),
 
             in_bytes=metric.get("in_bytes"),
             out_bytes=metric.get("out_bytes"),

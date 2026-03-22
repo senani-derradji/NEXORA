@@ -56,7 +56,7 @@ class Validator:
             return None
         if not isinstance(status, str):
             raise NormalizerValidationError(f"status must be a string, got {type(status).__name__}")
-        allowed = {"up", "down", "degraded", "unknown"}
+        allowed = {"up", "down"}
         status = status.strip().lower()
         if status not in allowed:
             raise NormalizerValidationError(f"status must be one of {allowed}, got '{status}'")

@@ -4,6 +4,9 @@ class Normalizer:
 
     @staticmethod
     def normalize(raw_metric):
+        # Check if device is DOWN - if so, send None for metrics to preserve old values
+        is_device_down = raw_metric.get("status") in ("down", "DOWN")
+
         return {
             "device":
                 {
@@ -14,22 +17,24 @@ class Normalizer:
                 },
 
             "sys": {
-                "cpu": raw_metric.get("cpu", 0.0),
-                "ram": raw_metric.get("ram", 0.0),
-                "disk": raw_metric.get("disk", 0.0),
+                # For DOWN devices, send None to preserve old metrics in InfluxDB
+                "cpu": None if is_device_down else raw_metric.get("cpu"),
+                "ram": None if is_device_down else raw_metric.get("ram"),
+                "disk": None if is_device_down else raw_metric.get("disk"),
             },
 
             "net": {
-                "in_bytes": raw_metric.get("in_bytes", 0.0),
-                "out_bytes": raw_metric.get("out_bytes", 0.0),
+                # For DOWN devices, send None to preserve old metrics in InfluxDB
+                "in_bytes": None if is_device_down else raw_metric.get("in_bytes"),
+                "out_bytes": None if is_device_down else raw_metric.get("out_bytes"),
 
-                "in_packets": raw_metric.get("in_packets", 0.0),
-                "out_packets": raw_metric.get("out_packets", 0.0),
+                "in_packets": None if is_device_down else raw_metric.get("in_packets"),
+                "out_packets": None if is_device_down else raw_metric.get("out_packets"),
 
-                "in_errors": raw_metric.get("in_errors", 0.0),
-                "out_errors": raw_metric.get("out_errors", 0.0),
+                "in_errors": None if is_device_down else raw_metric.get("in_errors"),
+                "out_errors": None if is_device_down else raw_metric.get("out_errors"),
 
-                "latency": raw_metric.get("latency", 0.0),
+                "latency": None if is_device_down else raw_metric.get("latency"),
                 "packet_loss": raw_metric.get("packet_loss", 0.0),
 
             },

@@ -62,7 +62,9 @@ class SNMPMonitor:
 
     def __init__(self, config: Optional["SNMPConfig"] = None):
         self.config = config or SNMPConfig()
-        self.logger = logging.getLogger(__name__)
+        # Suppress verbose SNMP transport logs
+        self.logger = logging.getLogger('nexora.collector.snmp')
+        self.logger.setLevel(logging.WARNING)  # Only log warnings and errors
 
 
     def snmp_get(self, ip: str, oid: str) -> Tuple[Any, bool]:
@@ -92,7 +94,7 @@ class SNMPMonitor:
             return var_binds[0][1], True
 
         except Exception as e:
-            self.logger.error(f"SNMP GET exception for {ip}: {e}")
+            self.logger.debug(f"SNMP GET exception for {ip}: {e}")
             return None, False
 
 
@@ -156,10 +158,46 @@ class SNMPMonitor:
     def _get_cpu_usage(self, ip: str) -> Optional[float]:
 
         cpu_idle, sec = self.snmp_get(ip, self.OID_CPU_IDLE)
-        if sec and cpu_idle:
-            return cpu_idle
+        print(f'''
 
-        return 0.0
+              CPU IDLE : {cpu_idle}
+              Type : {type(cpu_idle)}
+
+              ''')
+
+        # Check if we got valid data
+        if not sec or cpu_idle is None:
+            self.logger.warning(f"CPU idle query failed for {ip}")
+            return None
+
+        # Handle different SNMP response types
+        try:
+            # Handle bytes or string values from SNMP
+            if isinstance(cpu_idle, (bytes, str)):
+                # Empty bytes/string means no data
+                if cpu_idle in (b'', ''):
+                    return None
+                cpu_idle = float(cpu_idle)
+
+            # Handle SNMP Integer types (including Boolean-like integers)
+            elif isinstance(cpu_idle, int):
+                cpu_idle = float(cpu_idle)
+
+            # Handle other types (like SNMP Integer32)
+            else:
+                cpu_idle = float(cpu_idle)
+
+            # Validate the value is in reasonable range (0-100)
+            if cpu_idle < 0 or cpu_idle > 100:
+                self.logger.warning(f"CPU idle value out of range: {cpu_idle}")
+                return None
+
+            # CPU usage = 100 - CPU idle (SNMP returns idle %, we want usage %)
+            cpu_usage = 100.0 - cpu_idle
+            return cpu_usage
+        except (ValueError, TypeError) as e:
+            self.logger.warning(f"Failed to parse CPU idle value: {cpu_idle}, error: {e}")
+            return None
 
 
     def _get_memory_usage(self, ip: str) -> Optional[float]:
@@ -242,15 +280,50 @@ class SNMPMonitor:
 
         self.logger.info(f"Collecting metrics for {hostname} ({ip})")
 
+        # First, check if device is reachable via ping
+        latency, packet_loss = self.ping_device(ip)
+
+        # If device is down (100% packet loss), skip SNMP checks and return DOWN status
+        if packet_loss >= 100.0:
+            self.logger.warning(f"Device {hostname} ({ip}) is DOWN - skipping SNMP collection")
+            return {
+                "hostname": hostname,
+                "device_type": device_type,
+                "device_ip": ip,
+                "device_mac": mac_placeholder,
+
+                "cpu": None,
+                "ram": None,
+                "disk": None,
+
+                "in_bytes": 0,
+                "out_bytes": 0,
+                "in_packets": 0,
+                "out_packets": 0,
+                "in_errors": 0,
+                "out_errors": 0,
+
+                "latency": None,
+                "packet_loss": 100.0,
+
+                "status": "down",
+                "timestamp": int(time.time()),
+            }
+
+        # Device is up, collect SNMP metrics
         cpu = self._get_cpu_usage(ip)
         ram = self._get_memory_usage(ip)
         disk = self._get_disk_usage(ip)
 
         interface_stats = self._get_interface_stats(ip)
 
-        latency, packet_loss = self.ping_device(ip)
-
-        status = cpu is not None
+        # Determine status based on packet loss and latency
+        # UP: packet_loss < 100% and latency is available
+        # DOWN: packet_loss >= 100% or no latency
+        if packet_loss >= 100.0 or latency is None:
+            status = "down"
+        else:
+            status = "up"
 
         result = {
             "hostname": hostname,
@@ -272,7 +345,7 @@ class SNMPMonitor:
             "latency": float(latency) if latency else None,
             "packet_loss": float(packet_loss),
 
-            "status": status,
+            "status": status,  # Returns "up" or "down"
             "timestamp": int(time.time()),
         }
         return result

@@ -28,4 +28,6 @@ def create_supper_user(password: str = "admin"):
         session.commit()
         session.refresh(admin)
 
+        print(admin, " ::: Created admin user")
+
     session.close()

@@ -1,13 +1,16 @@
 
 
 from fastapi import FastAPI
-from api.routes import alerts, auth, users, devices
+from fastapi.middleware.cors import CORSMiddleware
+from api.routes import alerts, auth, users, devices, dashboard, metrics
 from utils.admin import create_supper_user
-from nexora_db.models.user import User
+from utils.logger import setup_logger
 from nexora_db.models.devices_model import Device
 from nexora_db.models.alerts_model import Alerts
 from config import init
 
+# Setup logger
+logger = setup_logger('backend.main', level=20)  # INFO level
 
 app = FastAPI(
     title="NEXORA Backend API",
@@ -15,19 +18,55 @@ app = FastAPI(
     description="Backend API for Nexora Observability Platform"
 )
 
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 @app.on_event("startup")
 def on_startup():
-    print("STARTUP !!")
+    logger.info("="*50)
+    logger.info("NEXORA BACKEND STARTING UP")
+    logger.info("="*50)
     init(url_env="DATABASE_URL")
-    create_supper_user(password="admin")
+    logger.info("Database initialized successfully")
+    print(create_supper_user(password = "admin"))
+    logger.info("Super user created/verified")
+    logger.info("Backend startup complete")
 
 
 @app.get("/health", tags=["system"])
 def health():
+    logger.debug("Health check endpoint called")
     return {"status": "ok", "service": "nexora-backend"}
 
-app.include_router(auth.router, prefix="/auth", tags=["auth"])
-app.include_router(users.router, prefix="/users", tags=["users"])
-app.include_router(devices.router, prefix="/devices", tags=["devices"])
-app.include_router(alerts.router, prefix="/alerts", tags=["alerts"])
 
+# Test endpoint for nginx connectivity
+@app.get("/test", tags=["system"])
+def test():
+    logger.info("Test endpoint called")
+    return {"message": "Backend is reachable!"}
+
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
+logger.info("Registered auth router at /auth")
+
+app.include_router(users.router, prefix="/users", tags=["users"])
+logger.info("Registered users router at /users")
+
+app.include_router(devices.router, prefix="/devices", tags=["devices"])
+logger.info("Registered devices router at /devices")
+
+app.include_router(alerts.router, prefix="/alerts", tags=["alerts"])
+logger.info("Registered alerts router at /alerts")
+
+app.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
+logger.info("Registered dashboard router at /dashboard")
+
+app.include_router(metrics.router, prefix="/metrics", tags=["metrics"])
+logger.info("Registered metrics router at /metrics")
+
+logger.info("All routers registered successfully")

@@ -1,4 +1,5 @@
 def init(url_env="DATABASE_URL"):
+    
     import os
     from dotenv import load_dotenv
     from nexora_db.configs.database import init_database, init_db_tables

@@ -21,4 +21,4 @@ protobuf==6.33.1
 pysnmp==4.4.12
 pyasn1==0.4.8
 
-nexora-db==0.2.5
+nexora-db==0.2.8

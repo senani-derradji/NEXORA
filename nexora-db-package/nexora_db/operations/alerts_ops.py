@@ -2,7 +2,7 @@ from nexora_db.models.alerts_model import Alerts
 from nexora_db.operations.devices_ops import DeviceOperations
 from nexora_db.configs.database import get_db
 from datetime import datetime, timezone
-from sqlalchemy import desc
+from sqlalchemy.orm import joinedload
 import logging
 
 # Setup logger
@@ -48,7 +48,8 @@ class AlertOperations:
     def get_all_alerts(self):
         session = next(get_db())
         try:
-            return session.query(Alerts).all()
+            # Use joinedload to eagerly load the device relationship
+            return session.query(Alerts).options(joinedload(Alerts.device)).all()
         finally:
             session.close()
 
@@ -56,7 +57,8 @@ class AlertOperations:
     def get_all_alerts_by_type(self, alert_level):
         session = next(get_db())
         try:
-            alerts = session.query(Alerts).filter(Alerts.alert_level == alert_level).all()
+            # Use joinedload to eagerly load the device relationship
+            alerts = session.query(Alerts).options(joinedload(Alerts.device)).filter(Alerts.alert_level == alert_level).all()
             return alerts if alerts else False
         finally:
             session.close()
@@ -129,6 +131,7 @@ class AlertOperations:
         try:
             # Get total count
             total = session.query(Alerts).count()
+            logger.info(f"[get_paginated_alerts] Total alerts in DB: {total}, page={page}, page_size={page_size}")
 
             if total == 0:
                 return {
@@ -140,9 +143,15 @@ class AlertOperations:
                 }
 
             # Get paginated alerts sorted by alert_time DESC (newest first)
-            query = session.query(Alerts).order_by(desc(Alerts.alert_time), desc(Alerts.id))
+            # Use id for secondary sort to handle potential null times
+            # Use joinedload to eagerly load the device relationship
+            from sqlalchemy import desc
+            # Handle null alert_time by using coalesce
+            query = session.query(Alerts).options(joinedload(Alerts.device)).order_by(desc(Alerts.alert_time), Alerts.id.desc())
             offset = (page - 1) * page_size
             paginated_alerts = query.offset(offset).limit(page_size).all()
+
+            logger.info(f"[get_paginated_alerts] Retrieved {len(paginated_alerts)} alerts for page {page}")
 
             total_pages = (total + page_size - 1) // page_size  # Ceiling division
 
@@ -157,6 +166,9 @@ class AlertOperations:
             }
 
         except Exception as e:
+            logger.error(f"[get_paginated_alerts] Error: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
             session.rollback()
             raise e
 

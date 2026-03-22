@@ -15,28 +15,34 @@ def WriteHealthStatus(dv_name: str, dv_ip: str, dv_mac: str, type_: str = None,
     HEALTH_MODEL = InfluxHealthModel()
     WRITE_API = InfluxClient().client.write_api(write_options=SYNCHRONOUS)
 
+    point = HEALTH_MODEL.device_health_point(
+                                        device_name=dv_name,
+                                        device_type=type_,
+                                        device_ip=dv_ip,
+                                        device_mac=dv_mac,
+                                        cpu_usage=cpu_usage,
+                                        ram_usage=ram_usage,
+                                        disk_usage=disk_usage,
+                                        in_bytes=in_bytes,
+                                        out_bytes=out_bytes,
+                                        in_packets=in_packets,
+                                        out_packets=out_packets,
+                                        in_errors=in_errors,
+                                        out_errors=out_errors,
+                                        status=status,
+                                        latency=latency,
+                                        packet_loss_percent=packet_loss_percent,
+                                        site=st
+                                    )
+
+    print(f"[CORE] Writing point for device: {dv_name}", flush=True)
+    print(f"[CORE] Fields: cpu={cpu_usage}, ram={ram_usage}, disk={disk_usage}, latency={latency}, status={status}", flush=True)
+
     RESULTS = WRITE_API.write(
                         bucket=TSBS_INFO.BUCKET,
                         org=TSBS_INFO.ORGANIZATION,
-                        record=HEALTH_MODEL.device_health_point(
-                                            device_name=dv_name,
-                                            device_type=type_,
-                                            device_ip=dv_ip,
-                                            device_mac=dv_mac,
-                                            cpu_usage=cpu_usage,
-                                            ram_usage=ram_usage,
-                                            disk_usage=disk_usage,
-                                            in_bytes=in_bytes,
-                                            out_bytes=out_bytes,
-                                            in_packets=in_packets,
-                                            out_packets=out_packets,
-                                            in_errors=in_errors,
-                                            out_errors=out_errors,
-                                            status=status,
-                                            latency=latency,
-                                            packet_loss_percent=packet_loss_percent,
-                                            site=st
-                                        )
+                        record=point
                             )
 
+    print(f"[CORE] Write result: {RESULTS}", flush=True)
     return RESULTS

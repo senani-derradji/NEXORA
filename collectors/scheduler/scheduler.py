@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from engines.snmp_engine.snmp_collector import SNMPConfig, SNMPMonitor
 from normalizer.normalizer import Normalizer
 from scheduler.heartbeat import DeviceHeartbeat
@@ -9,6 +10,9 @@ from transport.grpc_client import CoreClient
 from utils.devices_ import DeviceBootstrapper
 from engines.snmp_engine.utils.detect_vendor import detect_vendor
 from engines.snmp_engine.utils.detect_type import detect_device_type
+
+# Create logger for collector
+logger = logging.getLogger('nexora.collector')
 
 
 class Scheduler:
@@ -38,43 +42,43 @@ class Scheduler:
             # if not alive:
             #     normalized = Normalizer.normalize(down_metric(device=device))
             try:
-                raw_metrics = self.snmp_collector.collect_metrics_as_dataclass(
-                hostname=device["hostname"],
-                device_type=device["device_type"],
-                ip=device["ip_address"],
-                mac_placeholder=device["mac_address"]
+                # Run blocking SNMP operations in thread pool for concurrent execution
+                raw_metrics = await asyncio.to_thread(
+                    self.snmp_collector.collect_metrics_as_dataclass,
+                    hostname=device["hostname"],
+                    device_type=device["device_type"],
+                    ip=device["ip_address"],
+                    mac_placeholder=device["mac_address"]
                 )
 
-                if raw_metrics.get("latency") and raw_metrics.get("latency") > 200 or \
-                    raw_metrics.get("packet_loss") and raw_metrics.get("packet_loss") > 5 or \
-                    raw_metrics.get("cpu") and raw_metrics.get("cpu") > 85:
-                    raw_metrics["status"] = "DEGRADED"
+                # Set status to DOWN or UP
+                if raw_metrics.get("status") == "down":
+                    raw_metrics["status"] = "DOWN"
                 else:
                     raw_metrics["status"] = "UP"
 
+                # Always send status to core (even when device is DOWN) so database gets updated
+                # For DOWN devices, we send minimal data (status only, metrics are None/0)
                 normalized = Normalizer.normalize(raw_metrics)
 
-                self.sys_object_id = self.snmp_collector.snmp_get(ip=device["ip_address"], oid=self.snmp_collector.OID_SYS_OBJECT_ID)
+                # Run blocking SNMP GET in thread pool
+                self.sys_object_id = await asyncio.to_thread(
+                    self.snmp_collector.snmp_get,
+                    ip=device["ip_address"],
+                    oid=self.snmp_collector.OID_SYS_OBJECT_ID
+                )
 
                 vendor = detect_vendor(self.sys_object_id)
                 device_type = detect_device_type(self.sys_object_id)
 
-                print(f"""
+                logger.info(f"[{device['hostname']}] Metrics collected successfully - Vendor: {vendor}, Type: {device_type}")
 
-                      ------------------------------
-                      {device['hostname']}
-                      ------------------------------
-                      vendor : {vendor}
-                      device type : {device_type}
-                      ------------------------------
-
-                      """)
-
+                # Run gRPC send in thread pool to avoid blocking
                 if CoreHealth.check(host=self.host, port=self.port, timeout=3):
                     self.buffer.push_data(metric=normalized, status=True)
                     get = self.buffer.pop_data()
 
-                    resp = self.CoreClient.send_metric(metric=get)
+                    resp = await asyncio.to_thread(self.CoreClient.send_metric, metric=get)
 
                     if not resp:
                         self.buffer.push_data(metric=normalized, status=False)
@@ -82,7 +86,7 @@ class Scheduler:
                     self.buffer.push_data(metric=normalized, status=False)
 
             except Exception as e:
-                print(f"Error collecting metrics for {device['hostname']}: {e}")
+                logger.error(f"[{device['hostname']}] Error collecting metrics: {e}")
                 import traceback
                 traceback.print_exc()
 

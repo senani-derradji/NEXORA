@@ -10,6 +10,8 @@ services:
       POSTGRES_USER:     ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB:       ${POSTGRES_DB}
+      TZ: UTC
+      PGTZ: UTC
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -32,7 +34,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.5"
+          cpus: "0.25"
           memory: 256m
         reservations:
           memory: 128m
@@ -75,13 +77,13 @@ services:
       my_shared_network:
         ipv4_address: 172.18.0.10
 
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 512m
-        reservations:
-          memory: 256m
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: "0.5"
+    #       memory: 512m
+    #     reservations:
+    #       memory: 256m
 
     logging:
       driver: "json-file"
@@ -105,6 +107,7 @@ services:
     environment:
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
+      TZ: UTC
 
     ports:
       - "50051:50051"
@@ -126,13 +129,13 @@ services:
       my_shared_network:
         ipv4_address: 172.18.0.30
 
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 256m
-        reservations:
-          memory: 128m
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: "0.5"
+    #       memory: 256m
+    #     reservations:
+    #       memory: 128m
 
     logging:
       driver: "json-file"
@@ -155,6 +158,7 @@ services:
     environment:
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
+      TZ: UTC
 
     depends_on:
       postgres:
@@ -173,13 +177,13 @@ services:
       my_shared_network:
         ipv4_address: 172.18.0.40
 
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 256m
-        reservations:
-          memory: 128m
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: "0.5"
+    #       memory: 256m
+    #     reservations:
+    #       memory: 128m
 
     logging:
       driver: "json-file"
@@ -201,6 +205,7 @@ services:
     environment:
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
+      TZ: UTC
 
     ports:
       - "8000:8000"
@@ -224,13 +229,13 @@ services:
       my_shared_network:
         ipv4_address: 172.18.0.50
 
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 256m
-        reservations:
-          memory: 128m
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: "0.5"
+    #       memory: 256m
+    #     reservations:
+    #       memory: 128m
 
     logging:
       driver: "json-file"
@@ -382,6 +387,30 @@ services:
         limits:
           cpus: "0.2"
           memory: 64m
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    restart: unless-stopped
+    profiles: [prod, vlab]
+
+    ports:
+      - "3000:8080"
+
+    environment:
+      - API_URL=http://backend:8000
+
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.60
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   postgres_data:

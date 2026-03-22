@@ -18,3 +18,4 @@ virtual*
 # special files
 dz.py
 .vscode
+.env
