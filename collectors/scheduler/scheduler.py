@@ -8,8 +8,8 @@ from transport.check_core_health import CoreHealth
 from buffer.buffer_manager import BufferManager
 from transport.grpc_client import CoreClient
 from utils.devices_ import DeviceBootstrapper
-from engines.snmp_engine.utils.detect_vendor import detect_vendor
-from engines.snmp_engine.utils.detect_type import detect_device_type
+# from engines.snmp_engine.utils.detect_vendor import detect_vendor
+# from engines.snmp_engine.utils.detect_type import detect_device_type
 
 # Create logger for collector
 logger = logging.getLogger('nexora.collector')
@@ -68,10 +68,10 @@ class Scheduler:
                     oid=self.snmp_collector.OID_SYS_OBJECT_ID
                 )
 
-                vendor = detect_vendor(self.sys_object_id)
-                device_type = detect_device_type(self.sys_object_id)
+                # vendor = detect_vendor(self.sys_object_id)
+                # device_type = detect_device_type(self.sys_object_id)
 
-                logger.info(f"[{device['hostname']}] Metrics collected successfully - Vendor: {vendor}, Type: {device_type}")
+                # logger.info(f"[{device['hostname']}] Metrics collected successfully - Vendor: {vendor}, Type: {device_type}")
 
                 # Run gRPC send in thread pool to avoid blocking
                 if CoreHealth.check(host=self.host, port=self.port, timeout=3):

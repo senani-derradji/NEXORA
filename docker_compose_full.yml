@@ -1,5 +1,76 @@
 services:
 
+  v_lab_fortinet_firewall:
+    build:
+      context: ./v_labs/fortinet_firewall
+      dockerfile: Dockerfile
+
+    container_name: f_firewall
+    restart: unless-stopped
+    profiles: [vlab]
+    expose: ["161/udp"]
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.2
+    deploy:
+      resources:
+        limits:
+          cpus: "0.2"
+          memory: 64m
+  v_lab_linux:
+    build:
+      context: ./v_labs/linux_
+      dockerfile: Dockerfile
+
+    container_name: linux
+    restart: unless-stopped
+    profiles: [vlab]
+    expose: ["161/udp"]
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.9
+    deploy:
+      resources:
+        limits:
+          cpus: "0.2"
+          memory: 64m
+
+  v_lab_windows:
+    build:
+      context: ./v_labs/win_
+      dockerfile: Dockerfile
+
+    container_name: windows
+    restart: unless-stopped
+    profiles: [vlab]
+    expose: ["161/udp"]
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.8
+    deploy:
+      resources:
+        limits:
+          cpus: "0.2"
+          memory: 64m
+
+  v_lab_micro_router:
+    build:
+      context: ./v_labs/micro_router
+      dockerfile: Dockerfile
+
+    container_name: m_router
+    restart: unless-stopped
+    profiles: [vlab]
+    expose: ["161/udp"]
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.7
+    deploy:
+      resources:
+        limits:
+          cpus: "0.2"
+          memory: 64m
+
   postgres:
     image: postgres:16-alpine
     container_name: postgres
@@ -244,23 +315,6 @@ services:
         max-file: "5"
 
 
-  v_lab_linux:
-    build:
-      context: ./v_labs/linux_
-      dockerfile: Dockerfile
-
-    container_name: linux
-    restart: unless-stopped
-    profiles: [vlab]
-    expose: ["161/udp"]
-    networks:
-      my_shared_network:
-        ipv4_address: 172.18.0.9
-    deploy:
-      resources:
-        limits:
-          cpus: "0.2"
-          memory: 64m
 
   # v_lab_linux_2:
   #   build:
@@ -316,42 +370,6 @@ services:
   #         cpus: "0.2"
   #         memory: 64m
 
-  v_lab_windows:
-    build:
-      context: ./v_labs/win_
-      dockerfile: Dockerfile
-
-    container_name: windows
-    restart: unless-stopped
-    profiles: [vlab]
-    expose: ["161/udp"]
-    networks:
-      my_shared_network:
-        ipv4_address: 172.18.0.8
-    deploy:
-      resources:
-        limits:
-          cpus: "0.2"
-          memory: 64m
-
-  v_lab_micro_router:
-    build:
-      context: ./v_labs/micro_router
-      dockerfile: Dockerfile
-
-    container_name: m_router
-    restart: unless-stopped
-    profiles: [vlab]
-    expose: ["161/udp"]
-    networks:
-      my_shared_network:
-        ipv4_address: 172.18.0.7
-    deploy:
-      resources:
-        limits:
-          cpus: "0.2"
-          memory: 64m
-
   # v_lab_micro_switch:
   #   build:
   #     context: ./v_labs/micro_switch
@@ -370,23 +388,7 @@ services:
   #         cpus: "0.2"
   #         memory: 64m
 
-  v_lab_fortinet_firewall:
-    build:
-      context: ./v_labs/fortinet_firewall
-      dockerfile: Dockerfile
 
-    container_name: f_firewall
-    restart: unless-stopped
-    profiles: [vlab]
-    expose: ["161/udp"]
-    networks:
-      my_shared_network:
-        ipv4_address: 172.18.0.2
-    deploy:
-      resources:
-        limits:
-          cpus: "0.2"
-          memory: 64m
 
   frontend:
     build:

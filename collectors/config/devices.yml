@@ -1,43 +1,13 @@
 devices:
 
-  - hostname: server1linux
-    ip_address: 172.18.0.9
-    mac_address: 66:c6:6b:b4:4b:47
-    device_type: server
-    interval: 3
+  - ip: 172.18.0.2
+    interval: 15
 
-  - hostname: server2win
-    ip_address: 172.18.0.8
-    mac_address: 55:b6:6c:b4:4a:50
-    device_type: server
-    interval: 3
+  - ip: 172.18.0.9
+    interval: 15
 
-  - hostname: croute
-    ip_address: 172.18.0.7
-    mac_address: 55:b6:6c:b4:4a:53
-    device_type: router
-    interval: 3
+  - ip: 172.18.0.8
+    interval: 15
 
-  # - hostname: cswitch
-  #   ip_address: 172.18.0.6
-  #   mac_address: 55:b6:6c:b4:4a:52
-  #   device_type: switch
-  #   interval: 3
-
-  # - hostname: ffwall
-  #   ip_address: 172.18.0.5
-  #   mac_address: 55:b6:6c:b4:4a:51
-  #   device_type: firewall
-  #   interval: 3
-
-  # - hostname: server3linux
-  #   ip_address: 172.18.0.4
-  #   mac_address: 55:b6:6c:b4:4a:54
-  #   device_type: server
-  #   interval: 3
-
-  # - hostname: server4linux
-  #   ip_address: 172.18.0.3
-  #   mac_address: 55:b6:6c:b4:4a:55
-  #   device_type: server
-  #   interval: 3
+  - ip: 172.18.0.7
+    interval: 15
