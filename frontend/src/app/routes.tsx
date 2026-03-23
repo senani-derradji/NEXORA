@@ -3,11 +3,13 @@ import { createBrowserRouter, Navigate } from 'react-router';
 import { Layout } from './components/Layout';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { AlertsPage } from './pages/AlertsPage';
 import { DevicesPage } from './pages/DevicesPage';
 
 import { TopologyPage } from './pages/TopologyPage';
 import { MetricsPage } from './pages/MetricsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { AdminPage } from './pages/AdminPage';
 
 import { useAuth } from './context/AuthContext';
 
@@ -85,10 +87,12 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/dashboard" replace /> },
       { path: 'dashboard', element: <DashboardPage /> },
+      { path: 'alerts', element: <AlertsPage /> },
       { path: 'devices', element: <DevicesPage /> },
 
       { path: 'topology', element: <TopologyPage /> },
       { path: 'metrics', element: <MetricsPage /> },
+      { path: 'admin', element: <AdminPage /> },
       { path: 'settings', element: <SettingsWrapper /> },
 
       { path: '*', element: <Navigate to="/dashboard" replace /> },

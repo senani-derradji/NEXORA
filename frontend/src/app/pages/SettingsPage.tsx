@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Lock, Save, Check, Eye, EyeOff, Loader2, Trash2, Plus, X } from 'lucide-react';
+import { User, Lock, Save, Check, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { usersAPI } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -56,7 +56,6 @@ interface UserItem {
 
 export function SettingsPage({ theme, onToggleTheme }: SettingsPageProps) {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
 
   const [profileSaved, setProfileSaved] = useState(false);
   const [pwdSaved, setPwdSaved] = useState(false);
@@ -71,36 +70,6 @@ export function SettingsPage({ theme, onToggleTheme }: SettingsPageProps) {
   const [oldPwd, setOldPwd] = useState('');
   const [newPwd, setNewPwd] = useState('');
   const [confirmPwd, setConfirmPwd] = useState('');
-
-  // Users management state
-  const [users, setUsers] = useState<UserItem[]>([]);
-  const [usersLoading, setUsersLoading] = useState(false);
-  const [usersError, setUsersError] = useState('');
-  const [showAddUser, setShowAddUser] = useState(false);
-  const [newUserEmail, setNewUserEmail] = useState('');
-  const [newUserPassword, setNewUserPassword] = useState('');
-  const [addUserLoading, setAddUserLoading] = useState(false);
-  const [addUserError, setAddUserError] = useState('');
-
-  // Load users list (admin only)
-  useEffect(() => {
-    if (isAdmin) {
-      loadUsers();
-    }
-  }, [isAdmin]);
-
-  const loadUsers = async () => {
-    setUsersLoading(true);
-    setUsersError('');
-    try {
-      const data = await usersAPI.getAll() as any;
-      setUsers(data?.users || data || []);
-    } catch (err) {
-      setUsersError(err instanceof Error ? err.message : 'Failed to load users');
-    } finally {
-      setUsersLoading(false);
-    }
-  };
 
   const handleSaveProfile = async () => {
     setProfileLoading(true);
@@ -133,36 +102,6 @@ export function SettingsPage({ theme, onToggleTheme }: SettingsPageProps) {
       setPwdError(err instanceof Error ? err.message : 'Failed to change password. Check your current password.');
     } finally {
       setPwdLoading(false);
-    }
-  };
-
-  const handleAddUser = async () => {
-    if (!newUserEmail || !newUserPassword) {
-      setAddUserError('Email and password are required.');
-      return;
-    }
-    setAddUserLoading(true);
-    setAddUserError('');
-    try {
-      await usersAPI.register(newUserEmail, newUserPassword);
-      setNewUserEmail('');
-      setNewUserPassword('');
-      setShowAddUser(false);
-      loadUsers();
-    } catch (err) {
-      setAddUserError(err instanceof Error ? err.message : 'Failed to create user');
-    } finally {
-      setAddUserLoading(false);
-    }
-  };
-
-  const handleDeleteUser = async (userId: number) => {
-    if (!confirm('Are you sure you want to delete this user?')) return;
-    try {
-      await usersAPI.delete(userId);
-      loadUsers();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to delete user');
     }
   };
 
@@ -227,76 +166,6 @@ export function SettingsPage({ theme, onToggleTheme }: SettingsPageProps) {
           </button>
         </div>
       </Section>
-
-      {/* Users Management - Admin Only */}
-      {isAdmin && (
-        <Section title="Users Management" icon={User}>
-          {usersError && <p className="text-sm text-red-400 mb-3">{usersError}</p>}
-
-          {/* User List */}
-          {usersLoading ? (
-            <div className="flex items-center gap-2 text-slate-400 py-4">
-              <Loader2 className="w-4 h-4 animate-spin" /> Loading users...
-            </div>
-          ) : users.length > 0 ? (
-            <div className="space-y-2 mb-4">
-              {users.map((u) => (
-                <div key={u.id} className="flex items-center justify-between p-3 rounded-lg bg-white/5">
-                  <div>
-                    <div className="text-sm text-slate-200">{u.email}</div>
-                    <div className="text-xs text-slate-500 capitalize">{u.role}</div>
-                  </div>
-                  {u.role !== 'admin' && (
-                    <button
-                      onClick={() => handleDeleteUser(u.id)}
-                      className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
-                      title="Delete user"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-slate-400 py-4">No users found.</p>
-          )}
-
-          {/* Add User Form */}
-          {showAddUser ? (
-            <div className="p-4 rounded-lg border" style={{ borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}>
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm text-slate-300">Add New User</h4>
-                <button onClick={() => setShowAddUser(false)} className="text-slate-400 hover:text-white">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="space-y-3">
-                <Input value={newUserEmail} onChange={setNewUserEmail} placeholder="Email" />
-                <Input value={newUserPassword} onChange={setNewUserPassword} type="password" placeholder="Password" />
-                {addUserError && <p className="text-sm text-red-400">{addUserError}</p>}
-                <button
-                  onClick={handleAddUser}
-                  disabled={addUserLoading}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm text-white transition-all disabled:opacity-60"
-                  style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)' }}
-                >
-                  {addUserLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                  Create User
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => setShowAddUser(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/10 transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              Add User
-            </button>
-          )}
-        </Section>
-      )}
     </div>
   );
 }

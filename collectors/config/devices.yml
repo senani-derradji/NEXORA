@@ -10,34 +10,34 @@ devices:
     ip_address: 172.18.0.8
     mac_address: 55:b6:6c:b4:4a:50
     device_type: server
-    interval: 4
+    interval: 3
 
   - hostname: croute
     ip_address: 172.18.0.7
     mac_address: 55:b6:6c:b4:4a:53
     device_type: router
-    interval: 5
-
-  - hostname: cswitch
-    ip_address: 172.18.0.6
-    mac_address: 55:b6:6c:b4:4a:52
-    device_type: switch
     interval: 3
 
-  - hostname: ffwall
-    ip_address: 172.18.0.5
-    mac_address: 55:b6:6c:b4:4a:51
-    device_type: firewall
-    interval: 4
+  # - hostname: cswitch
+  #   ip_address: 172.18.0.6
+  #   mac_address: 55:b6:6c:b4:4a:52
+  #   device_type: switch
+  #   interval: 3
 
-  - hostname: server3linux
-    ip_address: 172.18.0.4
-    mac_address: 55:b6:6c:b4:4a:54
-    device_type: server
-    interval: 2
+  # - hostname: ffwall
+  #   ip_address: 172.18.0.5
+  #   mac_address: 55:b6:6c:b4:4a:51
+  #   device_type: firewall
+  #   interval: 3
 
-  - hostname: server4linux
-    ip_address: 172.18.0.3
-    mac_address: 55:b6:6c:b4:4a:55
-    device_type: server
-    interval: 2
+  # - hostname: server3linux
+  #   ip_address: 172.18.0.4
+  #   mac_address: 55:b6:6c:b4:4a:54
+  #   device_type: server
+  #   interval: 3
+
+  # - hostname: server4linux
+  #   ip_address: 172.18.0.3
+  #   mac_address: 55:b6:6c:b4:4a:55
+  #   device_type: server
+  #   interval: 3

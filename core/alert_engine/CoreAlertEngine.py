@@ -8,6 +8,21 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 from core.utils.logger import setup_logger
 
+# Try to import broadcast helper (may not be available in all contexts)
+try:
+    import nest_asyncio
+    nest_asyncio.apply()
+except ImportError:
+    pass
+
+try:
+    from backend.api.routes.alert_broadcast import broadcast_alert_sync
+except ImportError:
+    try:
+        from api.routes.alert_broadcast import broadcast_alert_sync
+    except ImportError:
+        broadcast_alert_sync = None
+
 # Setup logger
 logger = setup_logger('core.alert_engine', level=20)
 
@@ -19,7 +34,18 @@ class AlertEngine:
 
         # Deduplication: don't create duplicate alerts within this time window (in minutes)
         self.dedup_window_minutes = 5
-        logger.info("AlertEngine initialized with dedup window: 5 minutes")
+
+        # Rate limiting: track alert counts per device in memory to prevent flooding
+        self.alert_counts = {}  # {device_id: {alert_type: count}}
+        self.rate_limit_window_seconds = 300  # 5 minutes
+        self.max_alerts_per_type = 3  # Max alerts per type in window before suppression
+
+        # Traffic thresholds in Mbps (after proper conversion from bytes)
+        # Lowered thresholds for easier alert triggering
+        self.traffic_warning_mbps = 1    # 1 Mbps warning threshold
+        self.traffic_critical_mbps = 10  # 10 Mbps critical threshold
+
+        logger.info("AlertEngine initialized with dedup window: 5 minutes, rate limit: 3 alerts/5min")
 
     def _should_create_alert(self, device_id: int, alert_message: str) -> bool:
         """
@@ -46,6 +72,40 @@ class AlertEngine:
             # On error, allow alert creation to avoid blocking alerts
             return True
 
+    def _check_rate_limit(self, device_id: int, alert_type: str) -> bool:
+        """
+        Memory-level rate limiting: Check if we've already sent too many
+        alerts of this type within the rate limit window.
+        Returns True if under limit (should alert), False if over limit (suppress).
+        """
+        import time
+        current_time = time.time()
+
+        if device_id not in self.alert_counts:
+            self.alert_counts[device_id] = {}
+
+        if alert_type not in self.alert_counts[device_id]:
+            self.alert_counts[device_id][alert_type] = {
+                'count': 0,
+                'window_start': current_time
+            }
+
+        # Check if window has expired, reset if so
+        if current_time - self.alert_counts[device_id][alert_type]['window_start'] > self.rate_limit_window_seconds:
+            self.alert_counts[device_id][alert_type] = {
+                'count': 0,
+                'window_start': current_time
+            }
+
+        # Check if we've hit the limit
+        if self.alert_counts[device_id][alert_type]['count'] >= self.max_alerts_per_type:
+            logger.info(f"[RATE LIMIT] Suppressed alert {alert_type} for device {device_id} (limit: {self.max_alerts_per_type}/{self.rate_limit_window_seconds}s)")
+            return False
+
+        # Increment counter
+        self.alert_counts[device_id][alert_type]['count'] += 1
+        return True
+
     def _send_telegram(self, message: str, level: str = "WARNING"):
         """
         Example real implementation:
@@ -62,15 +122,15 @@ class AlertEngine:
     def cpu_alert(self, cpu, host: str = "unknown"):
         if cpu is None:
             return False
-        if cpu > 90:
+        if cpu > 95:
             self._send_telegram(
-                f"[CPU CRITICAL] {host}: CPU usage at {cpu:.1f}% (threshold 90%)",
+                f"[CPU CRITICAL] {host}: CPU usage at {cpu:.1f}% (threshold 95%)",
                 level="CRITICAL"
             )
             return True
-        if cpu > 85:
+        if cpu > 50:
             self._send_telegram(
-                f"[CPU WARNING] {host}: CPU usage at {cpu:.1f}% (threshold 85%)",
+                f"[CPU WARNING] {host}: CPU usage at {cpu:.1f}% (threshold 50%)",
                 level="WARNING"
             )
             return True
@@ -85,9 +145,9 @@ class AlertEngine:
                 level="CRITICAL"
             )
             return True
-        if ram > 80:
+        if ram > 50:
             self._send_telegram(
-                f"[RAM WARNING] {host}: RAM usage at {ram:.1f}% (threshold 80%)",
+                f"[RAM WARNING] {host}: RAM usage at {ram:.1f}% (threshold 50%)",
                 level="WARNING"
             )
             return True
@@ -102,9 +162,9 @@ class AlertEngine:
                 level="CRITICAL"
             )
             return True
-        if disk > 80:
+        if disk > 50:
             self._send_telegram(
-                f"[DISK WARNING] {host}: Disk usage at {disk:.1f}% (threshold 80%)",
+                f"[DISK WARNING] {host}: Disk usage at {disk:.1f}% (threshold 50%)",
                 level="WARNING"
             )
             return True
@@ -119,9 +179,9 @@ class AlertEngine:
                 level="CRITICAL"
             )
             return True
-        if latency > 150:
+        if latency > 50:
             self._send_telegram(
-                f"[LATENCY WARNING] {host}: Latency at {latency:.1f} ms (threshold 150 ms)",
+                f"[LATENCY WARNING] {host}: Latency at {latency:.1f} ms (threshold 50 ms)",
                 level="WARNING"
             )
             return True
@@ -130,9 +190,9 @@ class AlertEngine:
     def packet_loss_alert(self, packet_loss, host: str = "unknown"):
         if packet_loss is None:
             return False
-        if packet_loss > 5:
+        if packet_loss > 10:
             self._send_telegram(
-                f"[PACKET LOSS CRITICAL] {host}: Packet loss at {packet_loss:.2f}% (threshold 5%)",
+                f"[PACKET LOSS CRITICAL] {host}: Packet loss at {packet_loss:.2f}% (threshold 10%)",
                 level="CRITICAL"
             )
             return True
@@ -145,34 +205,76 @@ class AlertEngine:
         return False
 
     def in_bytes_alert(self, in_bytes, host: str = "unknown"):
+        """
+        Alert on inbound traffic.
+
+        UNIT CONVERSION FIX:
+        - SNMP OID_IF_IN_OCTETS returns bytes (octets), not bits
+        - If input is bytes/sec: Mbps = bytes_per_sec * 8 / 1,000,000
+        - If input is bytes (cumulative): needs delta calculation (not handled here)
+
+        Default thresholds (in Mbps after conversion):
+        - WARNING: 100 Mbps
+        - CRITICAL: 500 Mbps
+        """
         if in_bytes is None:
             return False
-        if in_bytes > 950:
+
+        # Convert bytes/sec to Mbps
+        # Formula: Mbps = (bytes_per_second * 8) / 1,000,000
+        # Or equivalently: Mbps = bytes_per_second / 125,000
+        try:
+            in_mbps = (float(in_bytes) * 8) / 1_000_000
+        except (ValueError, TypeError):
+            logger.warning(f"[IN BYTES] Could not convert '{in_bytes}' to float")
+            return False
+
+        if in_mbps > self.traffic_critical_mbps:
             self._send_telegram(
-                f"[IN BYTES CRITICAL] {host}: Inbound traffic at {in_bytes} Mbps (threshold 950 Mbps)",
+                f"[IN TRAFFIC CRITICAL] {host}: Inbound traffic at {in_mbps:.2f} Mbps (threshold {self.traffic_critical_mbps} Mbps)",
                 level="CRITICAL"
             )
             return True
-        if in_bytes > 800:
+        if in_mbps > self.traffic_warning_mbps:
             self._send_telegram(
-                f"[IN BYTES WARNING] {host}: Inbound traffic at {in_bytes} Mbps (threshold 800 Mbps)",
+                f"[IN TRAFFIC WARNING] {host}: Inbound traffic at {in_mbps:.2f} Mbps (threshold {self.traffic_warning_mbps} Mbps)",
                 level="WARNING"
             )
             return True
         return False
 
     def out_bytes_alert(self, out_bytes, host: str = "unknown"):
+        """
+        Alert on outbound traffic.
+
+        UNIT CONVERSION FIX:
+        - SNMP OID_IF_OUT_OCTETS returns bytes (octets), not bits
+        - If input is bytes/sec: Mbps = bytes_per_sec * 8 / 1,000,000
+
+        Default thresholds (in Mbps after conversion):
+        - WARNING: 100 Mbps
+        - CRITICAL: 500 Mbps
+        """
         if out_bytes is None:
             return False
-        if out_bytes > 950:
+
+        # Convert bytes/sec to Mbps
+        # Formula: Mbps = (bytes_per_second * 8) / 1,000,000
+        try:
+            out_mbps = (float(out_bytes) * 8) / 1_000_000
+        except (ValueError, TypeError):
+            logger.warning(f"[OUT BYTES] Could not convert '{out_bytes}' to float")
+            return False
+
+        if out_mbps > self.traffic_critical_mbps:
             self._send_telegram(
-                f"[OUT BYTES CRITICAL] {host}: Outbound traffic at {out_bytes} Mbps (threshold 950 Mbps)",
+                f"[OUT TRAFFIC CRITICAL] {host}: Outbound traffic at {out_mbps:.2f} Mbps (threshold {self.traffic_critical_mbps} Mbps)",
                 level="CRITICAL"
             )
             return True
-        if out_bytes > 800:
+        if out_mbps > self.traffic_warning_mbps:
             self._send_telegram(
-                f"[OUT BYTES WARNING] {host}: Outbound traffic at {out_bytes} Mbps (threshold 800 Mbps)",
+                f"[OUT TRAFFIC WARNING] {host}: Outbound traffic at {out_mbps:.2f} Mbps (threshold {self.traffic_warning_mbps} Mbps)",
                 level="WARNING"
             )
             return True
@@ -256,17 +358,26 @@ class AlertEngine:
         alerts = {}
 
         if not status or not hostname:
+            logger.warning(f"[ALERT ENGINE] Invalid input - status: {status}, hostname: {hostname}")
             return {"invalid_input": True}
 
         if not device_id:
             # Use DeviceOperations to get device by hostname
             device = self.deviceOPS.get_device_by_hostname(hostname)
             if not device:
-                return {"device_missing": True}
+                # Try to get device by IP address as fallback
+                logger.warning(f"[ALERT ENGINE] Device not found by hostname: {hostname}, attempting to find by other means")
+                # Return a flag indicating device needs to be created first
+                return {"device_missing": True, "hostname": hostname}
             dev_id = device.id
         else:
             dev_id = device_id
 
+        if not dev_id:
+            logger.error(f"[ALERT ENGINE] Cannot proceed - no valid device_id for hostname: {hostname}")
+            return {"no_device_id": True, "hostname": hostname}
+
+        logger.debug(f"[ALERT ENGINE] Processing alerts for device_id={dev_id}, hostname={hostname}, status={status}")
         status = status.lower()
 
         if status == "down":
@@ -280,6 +391,15 @@ class AlertEngine:
                         device_id=dev_id
                     )
                     logger.info(f"✅ ALERT CREATED: {msg} for device_id={dev_id}")
+                    # Broadcast to WebSocket clients - include hostname for display
+                    if broadcast_alert_sync:
+                        broadcast_alert_sync({
+                            "id": None,  # Will be assigned by DB
+                            "message": msg,
+                            "severity": "HIGH",
+                            "device_id": dev_id,
+                            "device_hostname": hostname  # Add hostname for WebSocket display
+                        })
                 except Exception as e:
                     logger.error(f"❌ FAILED TO CREATE ALERT: {msg}, error: {e}")
 
@@ -287,17 +407,17 @@ class AlertEngine:
 
         if status == "up":
 
-            alerts["cpu"] = self.cpu_alert(cpu)
-            alerts["ram"] = self.ram_alert(ram)
-            alerts["disk"] = self.disk_alert(disk)
-            alerts["latency"] = self.latency_alert(latency)
-            alerts["packet_loss"] = self.packet_loss_alert(packet_loss_percent)
-            alerts["in_bytes"] = self.in_bytes_alert(in_bytes)
-            alerts["out_bytes"] = self.out_bytes_alert(out_bytes)
-            alerts["in_packets"] = self.in_packets_alert(in_packets)
-            alerts["out_packets"] = self.out_packets_alert(out_packets)
-            alerts["in_errors"] = self.in_errors_alert(in_errors)
-            alerts["out_errors"] = self.out_errors_alert(out_errors)
+            alerts["cpu"] = self.cpu_alert(cpu, hostname)
+            alerts["ram"] = self.ram_alert(ram, hostname)
+            alerts["disk"] = self.disk_alert(disk, hostname)
+            alerts["latency"] = self.latency_alert(latency, hostname)
+            alerts["packet_loss"] = self.packet_loss_alert(packet_loss_percent, hostname)
+            alerts["in_bytes"] = self.in_bytes_alert(in_bytes, hostname)
+            alerts["out_bytes"] = self.out_bytes_alert(out_bytes, hostname)
+            alerts["in_packets"] = self.in_packets_alert(in_packets, hostname)
+            alerts["out_packets"] = self.out_packets_alert(out_packets, hostname)
+            alerts["in_errors"] = self.in_errors_alert(in_errors, hostname)
+            alerts["out_errors"] = self.out_errors_alert(out_errors, hostname)
 
 
             if alerts["cpu"] or alerts["ram"]:
@@ -310,6 +430,15 @@ class AlertEngine:
                             device_id=dev_id
                         )
                         logger.info(f"✅ ALERT CREATED: {msg} for device_id={dev_id}")
+                        # Broadcast to WebSocket clients - include hostname for display
+                        if broadcast_alert_sync:
+                            broadcast_alert_sync({
+                                "id": None,
+                                "message": msg,
+                                "severity": "MID",
+                                "device_id": dev_id,
+                                "device_hostname": hostname  # Add hostname for WebSocket display
+                            })
                     except Exception as e:
                         logger.error(f"❌ FAILED TO CREATE ALERT: {msg}, error: {e}")
 
@@ -323,6 +452,15 @@ class AlertEngine:
                             device_id=dev_id
                         )
                         logger.info(f"✅ ALERT CREATED: {msg} for device_id={dev_id}")
+                        # Broadcast to WebSocket clients - include hostname for display
+                        if broadcast_alert_sync:
+                            broadcast_alert_sync({
+                                "id": None,
+                                "message": msg,
+                                "severity": "LOW",
+                                "device_id": dev_id,
+                                "device_hostname": hostname  # Add hostname for WebSocket display
+                            })
                     except Exception as e:
                         logger.error(f"❌ FAILED TO CREATE ALERT: {msg}, error: {e}")
 
@@ -336,6 +474,15 @@ class AlertEngine:
                             device_id=dev_id
                         )
                         logger.info(f"✅ ALERT CREATED: {msg} for device_id={dev_id}")
+                        # Broadcast to WebSocket clients - include hostname for display
+                        if broadcast_alert_sync:
+                            broadcast_alert_sync({
+                                "id": None,
+                                "message": msg,
+                                "severity": "MID",
+                                "device_id": dev_id,
+                                "device_hostname": hostname  # Add hostname for WebSocket display
+                            })
                     except Exception as e:
                         logger.error(f"❌ FAILED TO CREATE ALERT: {msg}, error: {e}")
 
@@ -349,12 +496,41 @@ class AlertEngine:
                             device_id=dev_id
                         )
                         logger.info(f"✅ ALERT CREATED: {msg} for device_id={dev_id}")
+                        # Broadcast to WebSocket clients - include hostname for display
+                        if broadcast_alert_sync:
+                            broadcast_alert_sync({
+                                "id": None,
+                                "message": msg,
+                                "severity": "MID",
+                                "device_id": dev_id,
+                                "device_hostname": hostname  # Add hostname for WebSocket display
+                            })
+                        self.alertOPS.create_alert(
+                            alert_level="mid",
+                            alert_message=msg,
+                            device_id=dev_id
+                        )
+                        logger.info(f"✅ ALERT CREATED: {msg} for device_id={dev_id}")
+                        # Broadcast to WebSocket clients - include hostname for display
+                        if broadcast_alert_sync:
+                            broadcast_alert_sync({
+                                "id": None,
+                                "message": msg,
+                                "severity": "MID",
+                                "device_id": dev_id,
+                                "device_hostname": hostname  # Add hostname for WebSocket display
+                            })
                     except Exception as e:
                         logger.error(f"❌ FAILED TO CREATE ALERT: {msg}, error: {e}")
 
             if alerts["in_bytes"] or alerts["out_bytes"]:
-                msg = f"High traffic: in={in_bytes} / out={out_bytes}"
-                if self._should_create_alert(dev_id, msg):
+                # Calculate Mbps for display (proper unit conversion: bytes -> bits -> Mbps)
+                in_mbps = (float(in_bytes) * 8) / 1_000_000 if in_bytes else 0
+                out_mbps = (float(out_bytes) * 8) / 1_000_000 if out_bytes else 0
+                msg = f"High traffic: in={in_mbps:.2f} Mbps / out={out_mbps:.2f} Mbps"
+
+                # Use both deduplication and rate limiting
+                if self._should_create_alert(dev_id, msg) and self._check_rate_limit(dev_id, 'traffic'):
                     try:
                         self.alertOPS.create_alert(
                             alert_level="mid",
@@ -362,6 +538,15 @@ class AlertEngine:
                             device_id=dev_id
                         )
                         logger.info(f"✅ ALERT CREATED: {msg} for device_id={dev_id}")
+                        # Broadcast to WebSocket clients - include hostname for display
+                        if broadcast_alert_sync:
+                            broadcast_alert_sync({
+                                "id": None,
+                                "message": msg,
+                                "severity": "MID",
+                                "device_id": dev_id,
+                                "device_hostname": hostname  # Add hostname for WebSocket display
+                            })
                     except Exception as e:
                         logger.error(f"❌ FAILED TO CREATE ALERT: {msg}, error: {e}")
 
@@ -375,6 +560,15 @@ class AlertEngine:
                             device_id=dev_id
                         )
                         logger.info(f"✅ ALERT CREATED: {msg} for device_id={dev_id}")
+                        # Broadcast to WebSocket clients - include hostname for display
+                        if broadcast_alert_sync:
+                            broadcast_alert_sync({
+                                "id": None,
+                                "message": msg,
+                                "severity": "MID",
+                                "device_id": dev_id,
+                                "device_hostname": hostname  # Add hostname for WebSocket display
+                            })
                     except Exception as e:
                         logger.error(f"❌ FAILED TO CREATE ALERT: {msg}, error: {e}")
 
@@ -388,13 +582,17 @@ class AlertEngine:
                             device_id=dev_id
                         )
                         logger.info(f"✅ ALERT CREATED: {msg} for device_id={dev_id}")
+                        # Broadcast to WebSocket clients - include hostname for display
+                        if broadcast_alert_sync:
+                            broadcast_alert_sync({
+                                "id": None,
+                                "message": msg,
+                                "severity": "MID",
+                                "device_id": dev_id,
+                                "device_hostname": hostname  # Add hostname for WebSocket display
+                            })
                     except Exception as e:
                         logger.error(f"❌ FAILED TO CREATE ALERT: {msg}, error: {e}")
-                    self.alertOPS.create_alert(
-                        alert_level="mid",
-                        alert_message=msg,
-                        device_id=dev_id
-                    )
 
 
         return alerts

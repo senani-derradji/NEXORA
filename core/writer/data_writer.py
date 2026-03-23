@@ -47,15 +47,22 @@ PAYLOAD ::::
         device = self.deviceOPS.get_device_by_ip(ip_address=payload["ip_address"])
 
         if device is None:
-
-            self.deviceOPS.create_device(
+            # Create the device and get its ID
+            new_device = self.deviceOPS.create_device(
                 hostname=payload["hostname"],
                 device_type=payload["device_type"],
                 ip_address=payload["ip_address"],
                 mac_address=payload["mac_address"],
                 status=payload["status"]
             )
+            # Force commit by getting a fresh session and retrieving the device
+            from nexora_db.database import get_db
+            session = next(get_db())
+            session.commit()
 
+            # Get the device ID after creation
+            device = self.deviceOPS.get_device_by_ip(ip_address=payload["ip_address"])
+            logger.info(f"[WRITER] Created new device: {payload['hostname']} with id: {device.id if device else 'unknown'}")
         else:
             print("DEVICE EXISTS (not none)")
             self.deviceOPS.update_device_status(
@@ -64,9 +71,19 @@ PAYLOAD ::::
                 last_seen=datetime.now(timezone.utc)
             )
 
+        # Pass device_id to alert engine to avoid lookup issues
+        if device is None:
+            logger.error(f"[WRITER] FAILED to get device ID for {payload['hostname']} - alerts will not be created!")
+            device_id = None
+        else:
+            device_id = device.id
+
+        logger.debug(f"[WRITER] Calling AlertEngine with device_id={device_id}, hostname={payload['hostname']}")
+
         self.alertEngine.Engine(
             status=payload["status"],
             hostname=payload["hostname"],
+            device_id=device_id,
 
             cpu=metric.get("cpu"),
             ram=metric.get("ram"),

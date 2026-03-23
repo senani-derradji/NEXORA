@@ -28,9 +28,11 @@ def _serialize_alert(alert):
             return dt.isoformat()
         return str(dt)
 
-    # Get device hostname from relationship if available
+    # Get device info from relationship if available
     # Use safe check to avoid DetachedInstanceError
     device_hostname = None
+    device_ip = None
+    device_mac = None
     try:
         # Check if the object is attached to a session
         from sqlalchemy import inspect as sqla_inspect
@@ -39,8 +41,10 @@ def _serialize_alert(alert):
             pass
         elif hasattr(alert, 'device') and alert.device is not None:
             device_hostname = alert.device.hostname
+            device_ip = getattr(alert.device, 'ip_address', None) or getattr(alert.device, 'ip', None)
+            device_mac = getattr(alert.device, 'mac_address', None) or getattr(alert.device, 'mac', None)
     except Exception:
-        # If any error occurs, just skip the device hostname
+        # If any error occurs, just skip the device info
         pass
 
     return {
@@ -54,7 +58,9 @@ def _serialize_alert(alert):
         "created_at": format_time(alert.alert_time),
         "alert_time": format_time(alert.alert_time),
         "device_id": alert.device_id,
-        "device_hostname": device_hostname
+        "device_hostname": device_hostname,
+        "device_ip": device_ip,
+        "device_mac": device_mac
     }
 
 def _require_admin_or_viewer():
@@ -68,20 +74,39 @@ def _require_admin_or_viewer():
 @router.get("/")
 def all_alerts(
     page: int = Query(1, ge=1, description="Page number (1-based)"),
-    page_size: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE, description="Number of alerts per page"),
+    page_size: int = Query(50, ge=1, le=MAX_PAGE_SIZE, description="Number of alerts per page"),
+    after_id: int = Query(None, description="Return only alerts with ID greater than this value"),
+    after_timestamp: str = Query(None, description="Return only alerts created after this timestamp"),
+    limit: int = Query(None, ge=1, le=MAX_PAGE_SIZE, description="Limit number of results (alternative to page_size)"),
     user: dict = Depends(_require_admin_or_viewer())
 ):
-    logger.info(f"Fetching alerts - page: {page}, page_size: {page_size}, user: {user.get('email', 'unknown')}")
+    logger.info(f"Fetching alerts - page: {page}, page_size: {page_size}, after_id: {after_id}, after_timestamp: {after_timestamp}, user: {user.get('email', 'unknown')}")
 
     # Use direct SQLAlchemy session queries
     session = next(get_db())
     try:
-        # Get total count
-        total = session.query(Alerts).count()
-        logger.info(f"[alerts API] Total alerts in DB: {total}")
+        # Build base query with optional filters for efficient updates
+        query = session.query(Alerts).options(joinedload(Alerts.device))
+
+        # Apply after_id filter for efficient updates
+        if after_id is not None:
+            query = query.filter(Alerts.id > after_id)
+
+        # Apply after_timestamp filter for efficient updates
+        if after_timestamp is not None:
+            try:
+                from datetime import datetime
+                ts = datetime.fromisoformat(after_timestamp.replace('Z', '+00:00'))
+                query = query.filter(Alerts.alert_time > ts)
+            except Exception as e:
+                logger.warning(f"Invalid after_timestamp format: {after_timestamp}, error: {e}")
+
+        # Get total count (with filters applied)
+        total = query.count()
+        logger.info(f"[alerts API] Total alerts matching filters: {total}")
 
         if total == 0:
-            logger.info("No alerts found in database")
+            logger.info("No alerts found matching filters")
             return {
                 "alerts": [],
                 "total": 0,
@@ -91,31 +116,45 @@ def all_alerts(
                 "message": "No alerts found"
             }
 
-        # Get paginated alerts sorted by alert_time DESC (newest first)
-        # Use joinedload to eagerly load device relationship
-        query = session.query(Alerts).options(joinedload(Alerts.device)).order_by(Alerts.alert_time.desc(), Alerts.id.desc())
-        offset = (page - 1) * page_size
-        paginated_alerts = query.offset(offset).limit(page_size).all()
+        # Determine effective page size (use limit if provided)
+        effective_page_size = limit if limit else page_size
 
-        logger.info(f"[alerts API] Retrieved {len(paginated_alerts)} alerts for page {page}")
+        # Build the ordered query
+        query = query.order_by(Alerts.alert_time.desc(), Alerts.id.desc())
+
+        # FOR INITIAL LOAD (pagination mode): Use offset-based pagination
+        # FOR INCREMENTAL UPDATES (after_id mode): Return ALL matching alerts (no offset)
+        returned_count = 0
+        if after_id is not None:
+            # INCREMENTAL MODE: Get all alerts after the given ID (no pagination)
+            # This returns ONLY new alerts - essential for real-time updates!
+            paginated_alerts = query.limit(effective_page_size).all()
+            returned_count = len(paginated_alerts)
+            logger.info(f"[alerts API] Incremental mode: Retrieved {returned_count} new alerts after ID {after_id}")
+        elif after_timestamp is not None:
+            # TIMESTAMP-BASED MODE: Get all alerts after timestamp (no pagination)
+            paginated_alerts = query.limit(effective_page_size).all()
+            returned_count = len(paginated_alerts)
+            logger.info(f"[alerts API] Timestamp mode: Retrieved {returned_count} alerts after {after_timestamp}")
+        else:
+            # PAGINATION MODE: Standard page-based fetching
+            # Use the requested page_size, not capped at 50, for consistent behavior
+            # Cap only if explicitly larger than MAX_PAGE_SIZE
+            realtime_count = min(effective_page_size, MAX_PAGE_SIZE)
+            if effective_page_size > MAX_PAGE_SIZE:
+                logger.info(f"[alerts API] Large page size requested ({effective_page_size}), capped at {MAX_PAGE_SIZE}")
+            paginated_alerts = query.limit(realtime_count).all()
+            returned_count = len(paginated_alerts)
+            logger.info(f"[alerts API] Pagination mode: Retrieved {returned_count} alerts (page {page})")
+
+        logger.info(f"[alerts API] Retrieved {len(paginated_alerts)} alerts")
 
         # Serialize alerts
         serialized_alerts = [_serialize_alert(a) for a in paginated_alerts]
 
-        print(f"""
-              ___________________________________________________
-              [ALERTS API]
-              Total: {total}
-              Page: {page}
-              Page size: {page_size}
-              Total pages: {(total + page_size - 1) // page_size}
-              ___________________________________________________
-              """)
-
         total_pages = (total + page_size - 1) // page_size  # Ceiling division
 
-        logger.info(f"Total alerts: {total}, Page: {page}, PageSize: {page_size}")
-        logger.info(f"Returning {len(serialized_alerts)} alerts (page {page}), total: {total}")
+        logger.info(f"Returning {len(serialized_alerts)} alerts (total: {total})")
 
         return {
             "alerts": serialized_alerts,
@@ -310,5 +349,53 @@ def delete_alert(device_hostname: str):
     except Exception as e:
         session.rollback()
         return {"success": False, "message": f"Error: {str(e)}"}
+    finally:
+        session.close()
+
+
+@router.get("/latest")
+def get_latest_alerts(
+    limit: int = Query(50, ge=1, le=100, description="Number of latest alerts to return"),
+    user: dict = Depends(_require_admin_or_viewer())
+):
+    """
+    Get the latest alerts for real-time display.
+    Returns the most recent alerts sorted by newest first.
+    Designed to be polled every 1 second for live updates.
+    """
+    logger.info(f"[Latest Alerts] Fetching {limit} latest alerts, user: {user.get('email', 'unknown')}")
+
+    session = next(get_db())
+    try:
+        # Get latest alerts sorted by alert_time DESC (newest first)
+        query = session.query(Alerts).options(
+            joinedload(Alerts.device)
+        ).order_by(
+            Alerts.alert_time.desc(),
+            Alerts.id.desc()
+        ).limit(limit)
+
+        paginated_alerts = query.all()
+        logger.info(f"[Latest Alerts] Retrieved {len(paginated_alerts)} alerts")
+
+        # Serialize alerts
+        serialized_alerts = [_serialize_alert(a) for a in paginated_alerts]
+
+        return {
+            "alerts": serialized_alerts,
+            "total": len(serialized_alerts),
+            "limit": limit
+        }
+
+    except Exception as e:
+        print(f"[ERROR] Failed to fetch latest alerts: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
+        return {
+            "alerts": [],
+            "total": 0,
+            "limit": limit,
+            "message": f"Error: {str(e)}"
+        }
     finally:
         session.close()

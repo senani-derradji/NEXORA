@@ -158,6 +158,9 @@ from(bucket: "{self.bucket}")
         """
         Get the latest values for given fields and devices.
         Uses sort + limit instead of last() to get more accurate results.
+
+        IMPORTANT: Uses now() range to ensure we get truly latest data,
+        not data from a fixed 1 hour window that might not include recent points.
         """
         # Device filter
         device_filter = ""
@@ -168,9 +171,12 @@ from(bucket: "{self.bucket}")
         # Field filter
         field_conditions = " or ".join([f'r["_field"] == "{f}"' for f in fields])
 
+        # Use a larger time range to ensure we capture latest data
+        # Also use sort + limit to get most recent points per device/field
+        # NOTE: Using -24h without comment to avoid # being interpreted as comment in Flux
         query = f"""
 from(bucket: "{self.bucket}")
-  |> range(start: -1h)
+  |> range(start: -24h)
   |> filter(fn: (r) => r["_measurement"] == "{self.measurement}")
   |> filter(fn: (r) => {field_conditions})
   {device_filter}

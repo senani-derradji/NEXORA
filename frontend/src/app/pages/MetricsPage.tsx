@@ -9,7 +9,7 @@ import type { MetricResponse } from '../api/api';
 import { metricsAPI } from '../api/api';
 import { useApi } from '../hooks/useApi';
 
-const DURATIONS = ['5m', '15m', '30m', '1h', '6h', '24h', '7d'];
+const DURATIONS = ['1m', '5m', '15m', '30m', '1h', '6h', '24h', '7d'];
 
 const METRIC_COLORS = ['#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b'];
 
@@ -203,7 +203,7 @@ export function MetricsPage() {
     fetchers[activeTab],
     () => ({ metric: activeTab, duration, devices: [] }),
     [activeTab, duration],
-    {}
+    { autoRefresh: 3000 }  // Poll every 3 seconds for real-time updates
   );
 
   return (

@@ -15,6 +15,7 @@ router = APIRouter()
 
 # Duration mappings
 DURATION_MAP = {
+    '1m': '1m',
     '5m': '5m',
     '15m': '15m',
     '30m': '30m',
@@ -26,6 +27,7 @@ DURATION_MAP = {
 
 # Aggregation intervals based on duration
 AGGREGATION_MAP = {
+    '1m': '5s',
     '5m': '10s',
     '15m': '30s',
     '30m': '1m',
@@ -204,7 +206,7 @@ def _combine_network_data(
 
 @router.get("/cpu")
 def get_cpu_metrics(
-    duration: str = Query('1h', regex='^(5m|15m|30m|1h|6h|24h|7d)$'),
+    duration: str = Query('1h', regex='^(1m|5m|15m|30m|1h|6h|24h|7d)$'),
     device: Optional[str] = None,
     user: dict = Depends(_require_admin_or_viewer())
 ):
@@ -226,7 +228,7 @@ def get_cpu_metrics(
 
 @router.get("/ram")
 def get_ram_metrics(
-    duration: str = Query('1h', regex='^(5m|15m|30m|1h|6h|24h|7d)$'),
+    duration: str = Query('1h', regex='^(1m|5m|15m|30m|1h|6h|24h|7d)$'),
     device: Optional[str] = None,
     user: dict = Depends(_require_admin_or_viewer())
 ):
@@ -248,7 +250,7 @@ def get_ram_metrics(
 
 @router.get("/disk")
 def get_disk_metrics(
-    duration: str = Query('1h', regex='^(5m|15m|30m|1h|6h|24h|7d)$'),
+    duration: str = Query('1h', regex='^(1m|5m|15m|30m|1h|6h|24h|7d)$'),
     device: Optional[str] = None,
     user: dict = Depends(_require_admin_or_viewer())
 ):
@@ -270,7 +272,7 @@ def get_disk_metrics(
 
 @router.get("/network")
 def get_network_metrics(
-    duration: str = Query('1h', regex='^(5m|15m|30m|1h|6h|24h|7d)$'),
+    duration: str = Query('1h', regex='^(1m|5m|15m|30m|1h|6h|24h|7d)$'),
     device: Optional[str] = None,
     user: dict = Depends(_require_admin_or_viewer())
 ):
@@ -317,7 +319,7 @@ def get_network_metrics(
 
 @router.get("/latency")
 def get_latency_metrics(
-    duration: str = Query('1h', regex='^(5m|15m|30m|1h|6h|24h|7d)$'),
+    duration: str = Query('1h', regex='^(1m|5m|15m|30m|1h|6h|24h|7d)$'),
     device: Optional[str] = None,
     user: dict = Depends(_require_admin_or_viewer())
 ):
@@ -339,7 +341,7 @@ def get_latency_metrics(
 
 @router.get("/packet-loss")
 def get_packet_loss_metrics(
-    duration: str = Query('1h', regex='^(5m|15m|30m|1h|6h|24h|7d)$'),
+    duration: str = Query('1h', regex='^(1m|5m|15m|30m|1h|6h|24h|7d)$'),
     device: Optional[str] = None,
     user: dict = Depends(_require_admin_or_viewer())
 ):
@@ -361,7 +363,7 @@ def get_packet_loss_metrics(
 
 @router.get("/all")
 def get_all_metrics(
-    duration: str = Query('1h', regex='^(5m|15m|30m|1h|6h|24h|7d)$'),
+    duration: str = Query('1h', regex='^(1m|5m|15m|30m|1h|6h|24h|7d)$'),
     user: dict = Depends(_require_admin_or_viewer())
 ):
     """Get all metrics at once for dashboard overview"""

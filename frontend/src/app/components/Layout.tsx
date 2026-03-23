@@ -2,17 +2,28 @@ import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import {
-  LayoutDashboard, Server, Network, BarChart2, Settings, Shield, LogOut,
-  Menu, X, ChevronRight, Activity, Wifi, Moon, Sun
+  LayoutDashboard, Server, Network, BarChart2, Settings, Shield, LogOut, ShieldCheck,
+  Menu, X, ChevronRight, Activity, Wifi, Moon, Sun, AlertCircle
 } from 'lucide-react';
 
-const NAV_ITEMS = [
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/devices', label: 'Devices', icon: Server },
-  { path: '/topology', label: 'Topology', icon: Network },
-  { path: '/metrics', label: 'Metrics', icon: BarChart2 },
-  { path: '/settings', label: 'Settings', icon: Settings },
-];
+// Dynamic NAV_ITEMS based on user role
+export function getNavItems(userRole: string | undefined) {
+  const items = [
+    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/alerts', label: 'Alerts', icon: AlertCircle },
+    { path: '/devices', label: 'Devices', icon: Server },
+    { path: '/topology', label: 'Topology', icon: Network },
+    { path: '/metrics', label: 'Metrics', icon: BarChart2 },
+  ];
+
+  // Add admin for admin users only
+  if (userRole === 'admin') {
+    items.push({ path: '/admin', label: 'Admin', icon: ShieldCheck });
+  }
+
+  items.push({ path: '/settings', label: 'Settings', icon: Settings });
+  return items;
+}
 
 
 
@@ -64,9 +75,7 @@ export function Layout({ theme, onToggleTheme }: { theme: 'dark' | 'light'; onTo
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         <div className="text-xs text-slate-600 font-medium uppercase tracking-wider px-3 mb-2">Navigation</div>
-        {NAV_ITEMS.map(item => <NavItem key={item.path} {...item} />)}
-
-
+        {getNavItems(user?.role).map(item => <NavItem key={item.path} {...item} />)}
       </nav>
 
       {/* User / Bottom */}

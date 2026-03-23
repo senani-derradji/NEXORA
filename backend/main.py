@@ -3,6 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.routes import alerts, auth, users, devices, dashboard, metrics
+from api.routes.alerts_ws import router as alerts_ws_router
 from utils.admin import create_supper_user
 from utils.logger import setup_logger
 from nexora_db.models.devices_model import Device
@@ -68,5 +69,9 @@ logger.info("Registered dashboard router at /dashboard")
 
 app.include_router(metrics.router, prefix="/metrics", tags=["metrics"])
 logger.info("Registered metrics router at /metrics")
+
+# Register WebSocket router
+app.include_router(alerts_ws_router)
+logger.info("Registered WebSocket router at /ws/alerts")
 
 logger.info("All routers registered successfully")

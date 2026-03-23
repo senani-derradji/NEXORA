@@ -291,6 +291,8 @@ export interface Alert {
   id?: number;
   device?: string;
   device_hostname?: string;
+  device_ip?: string;
+  device_mac?: string;
   metric?: string;
   value?: number;
   threshold?: number;
@@ -316,6 +318,16 @@ export interface AlertsStats {
   warnings: number;
   info: number;
   total: number;
+}
+
+export interface RealtimeAlertsResponse {
+  alerts: Alert[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+  has_next: boolean;
+  has_prev: boolean;
 }
 
 export const alertsAPI = {
@@ -347,5 +359,22 @@ export const alertsAPI = {
   },
   async delete(deviceHostname: string): Promise<void> {
     return request(`/alerts/${deviceHostname}`, { method: 'DELETE' });
+  },
+  async getRealtime(page = 1): Promise<RealtimeAlertsResponse> {
+    return request(`/alerts/realtime?page=${page}`);
+  },
+  async getLatest(limit = 50): Promise<{ alerts: Alert[]; total: number; limit: number }> {
+    return request(`/alerts/latest?limit=${limit}`);
+  },
+  async getAlerts(page = 1, pageSize = 50): Promise<AlertsResponse> {
+    return request(`/alerts/?page=${page}&page_size=${pageSize}`);
+  },
+  // Get alerts after a specific ID (for efficient updates)
+  async getAlertsAfter(afterId: number, limit = 100): Promise<AlertsResponse> {
+    return request(`/alerts/?after_id=${afterId}&limit=${limit}`);
+  },
+  // Get alerts after a specific timestamp (for efficient updates)
+  async getAlertsAfterTimestamp(afterTimestamp: string, limit = 100): Promise<AlertsResponse> {
+    return request(`/alerts/?after_timestamp=${encodeURIComponent(afterTimestamp)}&limit=${limit}`);
   },
 };

@@ -6,6 +6,7 @@ import os
 def setup_logger(name: str, log_file: str = None, level=logging.INFO):
     """
     Setup a logger with console and optional file handlers.
+    Uses singleton pattern to avoid duplicate handlers.
 
     Args:
         name: Logger name (typically __name__)
@@ -15,13 +16,14 @@ def setup_logger(name: str, log_file: str = None, level=logging.INFO):
     Returns:
         Configured logger instance
     """
-    # Create logger
+    # Create logger - check if already exists with handlers to prevent duplicates
     logger = logging.getLogger(name)
-    logger.setLevel(level)
 
-    # Avoid duplicate handlers
-    if logger.handlers:
+    # If logger already has handlers (from previous setup), just return it
+    if logger.handlers or logger.level != logging.NOTSET:
         return logger
+
+    logger.setLevel(level)
 
     # Create formatters
     detailed_formatter = logging.Formatter(
