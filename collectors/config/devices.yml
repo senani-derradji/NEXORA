@@ -1,13 +1,5 @@
 devices:
-
-  - ip: 172.18.0.2
-    interval: 15
-
-  - ip: 172.18.0.9
-    interval: 15
-
-  - ip: 172.18.0.8
-    interval: 15
-
-  - ip: 172.18.0.7
-    interval: 15
+- ip_address: 172.18.0.2
+  interval: 15
+- ip_address: 172.18.0.9
+  interval: 15

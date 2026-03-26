@@ -153,10 +153,15 @@ export function DevicesPage() {
 
   const handleDelete = async (mac: string) => {
     if (!confirm('Are you sure you want to delete this device?')) return;
+    console.log('[DevicesPage] Attempting to delete device:', mac);
     try {
       await devicesAPI.delete(mac);
+      console.log('[DevicesPage] Delete successful, refetching...');
       refetch();
-    } catch { alert('Failed to delete device.'); }
+    } catch (error: any) {
+      console.error('[DevicesPage] Delete failed:', error);
+      alert(`Failed to delete device: ${error.message || 'Unknown error'}`);
+    }
   };
 
   const isAdmin = user?.role === 'admin';

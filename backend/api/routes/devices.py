@@ -6,12 +6,101 @@ from config import init ; init(url_env="DATABASE_URL")
 from datetime import datetime, timezone
 from utils.logger import setup_logger
 from time_series_readers.influx_reader import get_influx_reader
+import yaml, os, sys
+from pathlib import Path
+
 
 # Setup logger
 logger = setup_logger('backend.devices', level=20)
 
 device_ops = DeviceOperations()
 router = APIRouter()
+
+# Path to devices.yml in collectors config (mounted volume in container)
+SHARED_DEVICES_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "collectors", "config", "devices.yml")
+logger.info(f"SHARED_DEVICES_PATH initialized to: {SHARED_DEVICES_PATH}")
+
+def remove_device_from_yaml_by_ip(DEVICES_FILE: Path, ip_address: str):
+    logger.info(f"remove_device_from_yaml_by_ip called with IP: {ip_address}, file: {DEVICES_FILE}")
+    if not os.path.exists(DEVICES_FILE):
+        raise Exception("devices.yml not found")
+
+    with open(DEVICES_FILE, "r") as f:
+        data = yaml.safe_load(f)
+
+    logger.info(f"Loaded YAML data: {data}")
+
+    if not isinstance(data, dict) or "devices" not in data or not isinstance(data["devices"], list):
+        raise Exception("Invalid YAML format: expected {'devices': [...]}")
+
+    devices = data["devices"]
+    logger.info(f"Current devices in YAML: {devices}")
+
+    new_devices = [d for d in devices if d.get("ip_address") != ip_address]
+    logger.info(f"Devices after filtering by IP {ip_address}: {new_devices}")
+
+    if len(devices) == len(new_devices):
+        logger.warning(f"No device found with IP {ip_address} in YAML")
+        return False  # nothing removed
+
+    data["devices"] = new_devices
+
+    with open(DEVICES_FILE, "w") as f:
+        yaml.safe_dump(data, f)
+
+    logger.info(f"Successfully removed device with IP {ip_address} from YAML")
+    return True
+
+
+
+def _sync_device_to_yaml(device_data: dict, action: str = "add"):
+    """
+    Sync device to shared devices.yml for collectors.
+    action: 'add' to add device, 'remove' to remove device
+    """
+    try:
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(SHARED_DEVICES_PATH), exist_ok=True)
+
+        # Load existing devices
+        if os.path.exists(SHARED_DEVICES_PATH):
+            with open(SHARED_DEVICES_PATH, "r") as f:
+                data = yaml.safe_load(f) or {}
+        else:
+            data = {"devices": []}
+
+        devices = data.get("devices", [])
+
+        if action == "add":
+            # Check if device already exists (by mac_address)
+            device_exists = any(d.get("mac_address") == device_data.get("mac_address") for d in devices)
+            if not device_exists:
+                devices.append(device_data)
+                logger.info(f"Added device {device_data.get('hostname')} to devices.yml")
+            else:
+                logger.warning(f"Device {device_data.get('hostname')} already exists in devices.yml")
+        elif action == "remove":
+            # Remove device by ip_address (primary) or mac_address (fallback)
+            ip_to_remove = device_data.get("ip_address")
+            mac_to_remove = device_data.get("mac_address")
+            original_count = len(devices)
+            devices = [d for d in devices if d.get("ip_address") != ip_to_remove]
+            if len(devices) == original_count and mac_to_remove:
+                # Fallback: try to remove by mac_address if IP didn't match
+                devices = [d for d in devices if d.get("mac_address") != mac_to_remove]
+            if len(devices) < original_count:
+                logger.info(f"Removed device with IP {ip_to_remove} from devices.yml")
+            else:
+                logger.warning(f"Device with IP {ip_to_remove} not found in devices.yml")
+
+        # Save updated devices
+        data["devices"] = devices
+        with open(SHARED_DEVICES_PATH, "w") as f:
+            yaml.dump(data, f, default_flow_style=False)
+
+    except Exception as e:
+        logger.error(f"Failed to sync device to YAML: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to sync device: {str(e)}")
 
 def _is_device_online(device):
     now = datetime.now(timezone.utc)
@@ -87,6 +176,19 @@ def create_device(user: dict = Depends(require_role("admin")), device_form = Dep
     )
     if not device:
         raise HTTPException(status_code=400, detail="Device already exists")
+
+    # Sync device to shared devices.yml for collectors
+    device_data = {
+        "ip_address": device.ip_address,
+        "hostname": device.hostname,
+        "device_type": device.device_type,
+        "mac_address": device.mac_address,
+        "status": device.status or "unknown",
+        "interval": device.interval or 5
+    }
+    _sync_device_to_yaml(device_data, action="add")
+    logger.info(f"Device {device.hostname} created and synced to collectors")
+
     return { "status": "created", "device": {"hostname": device.hostname} }
 
 
@@ -153,9 +255,43 @@ def get_device(device_mac_address: str, user: dict = Depends(_require_admin_or_v
 
 @router.delete("/{device_mac_address}")
 def delete_device(device_mac_address: str, user: dict = Depends(require_role("admin"))):
+    logger.info(f"Delete request received for device: {device_mac_address}")
+    logger.info(f"User attempting delete: {user}")
 
-    if not device_ops.delete_device(device_mac_address=device_mac_address):
+    device = device_ops.get_device_by_mac(mac_address=device_mac_address)
+
+    if not device:
+        logger.warning(f"Device not found: {device_mac_address}")
         raise HTTPException(status_code=404, detail="Device not found")
+
+    logger.info(f"Device found: {device.hostname}")
+
+    device_ip = device.ip_address
+    logger.warning(f"Device IP: {device_ip}")
+
+    delete_result = device_ops.delete_device(mac_address=device_mac_address)
+
+    if not delete_result:
+        logger.error(f"Failed to delete device: {device_mac_address}")
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    try:
+        logger.info(f"Device IP to remove from YAML: {device_ip}")
+        logger.info(f"YAML file path: {SHARED_DEVICES_PATH}")
+        logger.info(f"YAML file exists: {os.path.exists(SHARED_DEVICES_PATH)}")
+
+        # Read current YAML content for debugging
+        if os.path.exists(SHARED_DEVICES_PATH):
+            with open(SHARED_DEVICES_PATH, "r") as f:
+                yaml_content = yaml.safe_load(f)
+            logger.info(f"Current YAML devices: {yaml_content}")
+
+        yaml_result = remove_device_from_yaml_by_ip(ip_address=device_ip, DEVICES_FILE=SHARED_DEVICES_PATH)
+        logger.info(f"YAML removal result: {yaml_result}")
+    except Exception as e:
+        logger.error(f"YAML sync failed: {str(e)}")
+
+    logger.info(f"Device {device.hostname} deleted from database and devices.yml")
 
     return {"status": "deleted"}
 
@@ -181,3 +317,4 @@ def update_device_api(
         raise HTTPException(status_code=500, detail=result)
 
     return {"status": "updated", "device": result}
+

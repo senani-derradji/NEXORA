@@ -45,12 +45,39 @@ check_file_exists() {
 validate_yaml_format() {
     log_info "Validating YAML format..."
 
+    # DEBUG: Show first few lines of the file
+    log_info "DEBUG: First 10 lines of $CONFIG_FILE:"
+    head -n 10 "$CONFIG_FILE" | while read -r line; do
+        log_info "DEBUG LINE: '$line'"
+    done
+
+    # DEBUG: Check what patterns match
+    log_info "DEBUG: Checking for 'ip:' pattern..."
+    if grep -qE "^[[:space:]]*- ip:" "$CONFIG_FILE"; then
+        log_info "DEBUG: Found '- ip:' pattern"
+    else
+        log_info "DEBUG: Did NOT find '- ip:' pattern"
+    fi
+
+    if grep -qE "ip_address:" "$CONFIG_FILE"; then
+        log_info "DEBUG: Found 'ip_address:' pattern"
+    else
+        log_info "DEBUG: Did NOT find 'ip_address:' pattern"
+    fi
+
+    # DEBUG: Show all lines containing 'ip'
+    log_info "DEBUG: Lines containing 'ip':"
+    grep -E "ip" "$CONFIG_FILE" | while read -r line; do
+        log_info "DEBUG: '$line'"
+    done
+
     if ! head -n 1 "$CONFIG_FILE" | grep -q "^devices:"; then
         log_error "Invalid YAML format: File must start with 'devices:'"
         exit 1
     fi
 
-    if ! grep -qE "^[[:space:]]*- ip:" "$CONFIG_FILE" && ! grep -qE "ip_address:" "$CONFIG_FILE"; then
+    # Fixed: Use parentheses to ensure correct operator precedence
+    if (! grep -qE "^[[:space:]]*- ip:" "$CONFIG_FILE") && (! grep -qE "ip_address:" "$CONFIG_FILE"); then
         log_error "Invalid YAML format: No devices with ip found"
         exit 1
     fi
@@ -230,28 +257,42 @@ def detect_device_type_from_hostname(hostname):
 
 async def process_single_device(device):
     """Process a single device asynchronously"""
+    # DIAGNOSTIC: Log input device data to understand what fields are provided
+    log_info(f"DEBUG INPUT: device = {device}")
+
     ip = device.get('ip') or device.get('ip_address')
     if not ip:
+        log_warn(f"DEBUG: No IP found in device: {device}")
         return None, None, None
+
+    log_info(f"DEBUG: Found IP = {ip}")
+
+    # DIAGNOSTIC: Check what optional fields are provided in input
+    input_hostname = device.get('hostname')
+    input_mac = device.get('mac') or device.get('mac_address')
+    input_device_type = device.get('device_type')
+    input_interval = device.get('interval')
+
+    log_info(f"DEBUG INPUT FIELDS: hostname='{input_hostname}', mac='{input_mac}', device_type='{input_device_type}', interval={input_interval}")
 
     # Ping first
     if not ping_device(ip, timeout=30, interval=5):
         return ip, None, "not_reachable"
 
-    # Get MAC
-    mac = get_mac_address(ip)
+    # Get MAC - FIRST check if provided in input, then try ARP
+    mac = input_mac if input_mac else get_mac_address(ip)
+    log_info(f"DEBUG MAC: input_mac='{input_mac}', arp_mac='{get_mac_address(ip)}', final_mac='{mac}'")
 
     # Get SNMP info asynchronously
     snmp_info = await get_device_info_async(ip, community="public", timeout=5)
 
+    # DIAGNOSTIC: Log SNMP-detected values
+    log_info(f"DEBUG SNMP: snmp_info = {snmp_info}")
+
+    # Use input hostname if provided, otherwise use SNMP/reverse DNS/generated
     hostname = snmp_info.get('hostname', '')
-    device_type = snmp_info.get('device_type', 'unknown')
-    vendor = snmp_info.get('vendor', 'unknown')
 
-    # Check if SNMP available
-    snmp_available = snmp_info.get('snmp_available', False)
-
-    # If no hostname, try reverse DNS
+    # If no hostname from SNMP, try reverse DNS
     if not hostname:
         try:
             result = subprocess.run(["host", ip], capture_output=True, text=True, timeout=5)
@@ -260,12 +301,25 @@ async def process_single_device(device):
         except Exception:
             pass
 
+    # If still no hostname, use input hostname or generate default
     if not hostname:
-        hostname = f"device_{ip.replace('.', '_')}"
+        hostname = input_hostname if input_hostname else f"device_{ip.replace('.', '_')}"
 
-    # If device_type unknown, use hostname detection
-    if device_type == 'unknown':
-        device_type = detect_device_type_from_hostname(hostname)
+    log_info(f"DEBUG HOSTNAME: snmp_hostname='{snmp_info.get('hostname', '')}', input_hostname='{input_hostname}', final_hostname='{hostname}'")
+
+    # Use input device_type if provided, otherwise use SNMP/hostname detection
+    device_type = snmp_info.get('device_type', 'unknown')
+    vendor = snmp_info.get('vendor', 'unknown')
+
+    # Check if SNMP available
+    snmp_available = snmp_info.get('snmp_available', False)
+
+    # If device_type unknown or not provided in input, use hostname detection
+    if device_type == 'unknown' or not input_device_type:
+        detected_type = detect_device_type_from_hostname(hostname)
+        device_type = input_device_type if input_device_type else detected_type
+
+    log_info(f"DEBUG DEVICE_TYPE: snmp_type='{snmp_info.get('device_type', 'unknown')}', input_type='{input_device_type}', detected='{detect_device_type_from_hostname(hostname)}', final='{device_type}'")
 
     # Combine hostname with vendor: {hostname}_{vendor}
     if vendor and vendor != 'unknown':
@@ -280,16 +334,20 @@ async def process_single_device(device):
     # Truncate device_type
     device_type = str(device_type)[:20]
 
-    # Get interval
-    interval = device.get('interval', 15)
+    # Get interval - use input if provided, otherwise default
+    interval = input_interval if input_interval else device.get('interval', 15)
+
+    log_info(f"DEBUG INTERVAL: input_interval={input_interval}, default=15, final={interval}")
 
     working_device = {
-        'hostname': hostname,
         'ip_address': ip,
+        'hostname': hostname,
         'mac_address': mac if mac else '',
         'device_type': device_type,
         'interval': interval
     }
+
+    log_info(f"DEBUG OUTPUT: working_device = {working_device}")
 
     snmp_status = "SNMP OK" if snmp_available else "SNMP N/A"
     log_info(f"Working device: {hostname} ({ip}) - Type: {device_type} - {snmp_status}")

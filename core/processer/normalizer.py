@@ -16,9 +16,7 @@ class Validator:
             raise NormalizerValidationError("host must not be empty")
         if len(host) > 253:
             raise NormalizerValidationError("host must not exceed 253 characters")
-        hostname_regex = r"^(?!-)[A-Za-z0-9\-]{1,63}(?<!-)(\.[A-Za-z0-9\-]{1,63})*$"
-        if not re.match(hostname_regex, host):
-            raise NormalizerValidationError(f"Invalid hostname format: '{host}'")
+
         return host
 
     @staticmethod
