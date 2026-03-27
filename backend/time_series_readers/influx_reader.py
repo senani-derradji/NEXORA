@@ -11,7 +11,7 @@ class InfluxReader:
 
     def __init__(self):
         self.url = os.getenv("INFLUXDB_URL", "http://influxdb:8086")
-        self.token = os.getenv("INFLUXDB_TOKEN") or os.getenv("INFLUXDB_ADMIN_TOKEN", "n6bxjLpFUJQTx0OAmciNE-4wal8OXShCQrRM6Bj8t-w62b1sXcV32mH_Go1fkgXtFXb0u92V-xOsRFX-sK9y8A==")
+        self.token = os.getenv("INFLUXDB_INIT_ADMIN_TOKEN")
         self.org = os.getenv("INFLUXDB_ORG", "myorg")
         self.bucket = os.getenv("INFLUXDB_BUCKET", "dr_test")
 
