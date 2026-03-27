@@ -1,6 +1,6 @@
 # NEXORA Backend
 
-> **FastAPI-based observability platform backend** — v0.2.0  
+> **FastAPI-based observability platform backend** — v0.2.0
 > Handles authentication, device management, and alert tracking via a REST API.
 
 ---
@@ -86,12 +86,17 @@ ACCESS_TOKEN_EXPIRE_MINUTES=60
 |---|---|---|---|
 | `POST` | `/auth/register` | Public | Create a new user account |
 | `POST` | `/auth/login` | Public | OAuth2 password flow — returns a Bearer token |
+| `GET` | `/auth/check-auth` | Bearer token | Check if user is authenticated |
 
 ### Users — `/users`
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
 | `GET` | `/users/me` | Bearer token | Returns the current user's email + role |
+| `PUT` | `/users/me` | Bearer token | Update current user profile |
+| `POST` | `/users/change-password` | Bearer token | Change user password |
+| `GET` | `/users/` | Bearer token (admin) | List all users |
+| `DELETE` | `/users/{id}` | Bearer token (admin) | Delete a user |
 | `GET` | `/users/admin-only` | Bearer token (admin) | Admin-only test route |
 
 ### Devices — `/devices`
@@ -103,20 +108,53 @@ ACCESS_TOKEN_EXPIRE_MINUTES=60
 | `GET` | `/devices/{mac}` | admin | Get device by MAC address |
 | `PUT` | `/devices/{mac}` | admin | Update device fields |
 | `DELETE` | `/devices/{mac}` | admin | Remove a device |
+| `GET` | `/devices/count` | admin | Get device count |
 
 ### Alerts — `/alerts`
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| `GET` | `/alerts/` | Public | List all alerts (max 100) |
+| `GET` | `/alerts/` | Public | List all alerts (paginated) |
+| `GET` | `/alerts/stats` | Public | Get alert statistics (critical, warnings, info, total) |
+| `GET` | `/alerts/realtime` | Public | Get real-time alerts with pagination |
+| `GET` | `/alerts/latest` | Public | Get latest alerts (limit parameter) |
 | `GET` | `/alerts/{hostname}` | Public | Alerts for a specific device |
 | `DELETE` | `/alerts/{hostname}` | Public | Delete alerts for a device |
+
+### Dashboard — `/dashboard`
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/dashboard/summary` | admin/viewer | Get dashboard summary with device counts, alerts, and metrics |
+| `GET` | `/dashboard/device-metrics` | admin/viewer | Get metrics for all devices with latest readings |
+| `GET` | `/dashboard/topology` | admin/viewer | Get network topology with devices |
+| `GET` | `/dashboard/metrics/history` | admin/viewer | Get time-series metrics history from InfluxDB |
+| `GET` | `/dashboard/metrics/current` | admin/viewer | Get current metrics for all devices from InfluxDB |
+
+### Metrics — `/metrics`
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/metrics/cpu` | admin/viewer | Get CPU usage metrics for all devices |
+| `GET` | `/metrics/ram` | admin/viewer | Get RAM usage metrics for all devices |
+| `GET` | `/metrics/disk` | admin/viewer | Get disk usage metrics for all devices |
+| `GET` | `/metrics/network` | admin/viewer | Get network metrics (in/out bytes) for all devices |
+| `GET` | `/metrics/latency` | admin/viewer | Get latency metrics for all devices |
+| `GET` | `/metrics/packet-loss` | admin/viewer | Get packet loss metrics for all devices |
+| `GET` | `/metrics/all` | admin/viewer | Get all metrics at once for dashboard overview |
+
+### WebSocket — `/ws`
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `WebSocket` | `/ws/alerts` | Public | Real-time alerts channel — clients receive instant alerts as they are created |
 
 ### System
 
 | Method | Endpoint | Description |
 |---|---|---|
 | `GET` | `/health` | Service health check |
+| `GET` | `/test` | Test endpoint for nginx connectivity |
 
 ---
 

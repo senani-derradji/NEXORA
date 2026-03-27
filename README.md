@@ -17,8 +17,10 @@ NEXORA is a self-hosted, containerised observability stack built around industry
 | **Time-series storage** | All metrics land in InfluxDB for high-resolution querying and dashboarding. |
 | **Relational metadata** | Device inventory, status, and alert history are stored in PostgreSQL. |
 | **Threshold-based alerting** | 11 metrics × 2 severity levels (WARNING / CRITICAL) evaluated on every incoming metric. Alerts written to PostgreSQL. Telegram notification stub ready to activate. |
-| **REST API** | FastAPI backend exposes device management, user auth (JWT), and alert retrieval. |
+| **REST API** | FastAPI backend exposes device management, user auth (JWT), dashboard, metrics, and alert retrieval. |
+| **WebSocket alerts** | Real-time alert notifications via WebSocket connection. |
 | **Resilient buffering** | Collectors buffer metrics locally (memory → SQLite disk fallback) during Core outages and replay them automatically on recovery. |
+| **Web dashboard** | React-based frontend with real-time device monitoring, alert management, metric visualization, and network topology. |
 
 ---
 
@@ -99,11 +101,25 @@ NEXORA is a self-hosted, containerised observability stack built around industry
 │  • GET  /users/me                                     │
 │  • CRUD /devices/*  (admin only)                      │
 │  • GET/DELETE /alerts/*                               │
+│  • GET /dashboard/*  (summary, metrics, topology)     │
+│  • GET /metrics/*  (cpu, ram, disk, network, latency) │
+│  • WebSocket /ws/alerts  (real-time alerts)           │
 │  • GET /health                                        │
 └───────────────────────────────────────────────────────┘
              │
              ▼
-       [ Frontend ]  ← coming soon
+       ┌───────────────────────────────────────────────────────┐
+│                    FRONTEND  (.60)                    │
+│                                                       │
+│  React Dashboard                                      │
+│  • Login / Authentication                             │
+│  • Dashboard with device overview                     │
+│  • Real-time alert monitoring                         │
+│  • Device management (CRUD)                           │
+│  • Metric visualization (charts)                      │
+│  • Network topology map                               │
+│  • User settings and admin panel                      │
+└───────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -119,6 +135,7 @@ NEXORA is a self-hosted, containerised observability stack built around industry
 | `core` | `core` | `172.18.0.30` | `50051` | gRPC ingest server — validation, alerting, writing |
 | `collectors` | `collectors` | `172.18.0.40` | `50052→50051` | SNMP poller — per-device async collection |
 | `backend` | `backend` | `172.18.0.50` | `8000` | REST API — management interface |
+| `frontend` | `frontend` | `172.18.0.60` | `80` | React web dashboard — monitoring UI |
 | `v_lab_linux` | `linux` | `172.18.0.9` | `161` | Virtual lab: Linux server (SNMP-enabled) |
 | `v_lab_linux_2` | `linux_2` | `172.18.0.5` | `161` | Virtual lab: Linux server 2 |
 | `v_lab_linux_3` | `linux_3` | `172.18.0.4` | `161` | Virtual lab: Linux server 3 |
@@ -140,7 +157,7 @@ NEXORA is a self-hosted, containerised observability stack built around industry
 ```
 postgres (healthy) ──┐
 influxdb (healthy) ──┤──► core ─────┐
-                     │              ├──► collectors ──► backend
+                     │              ├──► collectors ──► backend ──► frontend
                      └──────────────┘
 ```
 
@@ -155,10 +172,13 @@ influxdb (healthy) ──┤──► core ─────┐
 # 2. Start everything
 docker compose -f docker_compose_full.yml up --build
 
-# 3. Backend API
+# 3. Frontend Dashboard
+open http://localhost:3000
+
+# 4. Backend API
 open http://localhost:8000/docs
 
-# 4. InfluxDB UI
+# 5. InfluxDB UI
 open http://localhost:8086
 ```
 
@@ -174,9 +194,10 @@ open http://localhost:8086
 ```
 NEXORA/
 ├── .env         # Template for all infrastructure secrets
-├── backend/             # FastAPI REST API (auth, devices, alerts)
+├── backend/             # FastAPI REST API (auth, devices, alerts, dashboard, metrics)
 ├── collectors/          # SNMP collector service
 ├── core/                # gRPC ingest, processing, alerting, InfluxDB write
+├── frontend/            # React-based web dashboard
 ├── nexora-db-package/   # Shared SQLAlchemy ORM package (published to PyPI)
 ├── docker/
 │   ├── init_postgres.sh   # Dynamic PostgreSQL DB/user permission script
@@ -194,7 +215,7 @@ NEXORA/
 | **Backend** (REST API) | [backend/README.md](backend/README.md) |
 | **Collectors** (SNMP poller) | [collectors/README.md](collectors/README.md) |
 | **Core** (gRPC + alerting + storage) | [core/README.md](core/README.md) |
-| **Frontend** | Coming soon |
+| **Frontend** (React dashboard) | [frontend/README.md](frontend/README.md) |
 
 ---
 
@@ -203,19 +224,24 @@ NEXORA/
 ### What works today
 - Full metric collection pipeline: SNMP → gRPC → validate → PostgreSQL + InfluxDB
 - Threshold alerting (11 metrics, 2 levels) written to PostgreSQL
-- REST API: JWT auth, device CRUD, alert retrieval
+- REST API: JWT auth, device CRUD, dashboard, metrics, alert retrieval
+- WebSocket real-time alert notifications
 - Hot-reload device list from YAML (no restart needed)
 - Resilient buffering with disk fallback on Core outage
 - Virtual lab environment for testing without real hardware
+- React-based web dashboard with real-time monitoring
+- Device management, alert tracking, and metric visualization
+- Network topology visualization
+- User authentication and role-based access control
 
 ### Planned Features
 
 #### Near-term
-- **Frontend dashboard** — real-time device map, metric graphs from InfluxDB, alert feed
 - **Real Telegram / email / webhook notifications** — replace the print-stub in `AlertEngine._send_telegram()`
 - **NoSQL buffer for collectors** — replace SQLite disk queue with Redis or MongoDB
 - **Alert rule configuration** — make thresholds configurable via the API instead of hardcoded
 - **SNMP v3 support** — add `UsmUserData` authentication to `snmp_collector.py`
+- **Frontend enhancements** — advanced filtering, export functionality, and more chart types
 
 #### Medium-term
 - **Multi-engine collectors** — WMI (Windows), Prometheus scrape, Netflow/sFlow, syslog ingestion
