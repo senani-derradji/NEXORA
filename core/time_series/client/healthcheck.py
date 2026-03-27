@@ -13,15 +13,28 @@ TOKEN=TSBS_INFO.TOKEN
 
 def credentials_is_valid():
     try:
+        print(f"[DEBUG] Attempting to connect to InfluxDB at: {URL}")
+        print(f"[DEBUG] Using token: {TOKEN[:10]}..." if TOKEN else "[DEBUG] Token is None or empty!")
+        print(f"[DEBUG] Looking for organization: {ORG_NAME}")
+        print(f"[DEBUG] Looking for bucket: {BUCKET_NAME}")
+
         client = InfluxDBClient(
                                 url=URL,
-                                token=TOKEN
+                                token=TOKEN,
+                                org=ORG_NAME
                                 )
+        print(f"[DEBUG] InfluxDBClient created successfully")
+
         orgs_api = OrganizationsApi(client)
         buckets_api = BucketsApi(client)
 
+        print(f"[DEBUG] Attempting to find organization: {ORG_NAME}")
         org = orgs_api.find_organizations(org=ORG_NAME)
-        if org: org = org[0]
+        if org:
+            org = org[0]
+            print(f"[DEBUG] Found organization: {org.name} (ID: {org.id})")
+        else:
+            print(f"[DEBUG] Organization '{ORG_NAME}' not found!")
 
         bucket = buckets_api.find_bucket_by_name(BUCKET_NAME)
         if bucket is None:
@@ -35,9 +48,14 @@ def credentials_is_valid():
 
 
     except ApiException as e:
-        print(f"An API error occurred: {e}") ; return False
+        print(f"[ERROR] An API error occurred: {e}")
+        print(f"[ERROR] API Exception details: status={e.status}, reason={e.reason}")
+        return False
     except Exception as e:
-        print(f"An unexpected error occurred: {e}") ; return False
+        print(f"[ERROR] An unexpected error occurred: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
 
     return True
 
@@ -47,7 +65,11 @@ def health_check():
     from .client import InfluxClient
 
     try:
-        health = InfluxClient().client.health()
+        influx_client = InfluxClient()
+        if influx_client.client is None:
+            raise Exception("InfluxClient is not initialized - credentials may be invalid")
+
+        health = influx_client.client.health()
         print(health)
 
         if health.status == "pass":
@@ -60,4 +82,8 @@ def health_check():
     except Exception as e:
         raise Exception(f"Health check failed: {e}")
 
-    finally: InfluxClient().client.close()
+    finally:
+        try:
+            influx_client.client.close()
+        except:
+            pass

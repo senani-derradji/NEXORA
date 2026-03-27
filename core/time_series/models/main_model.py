@@ -3,7 +3,13 @@ from core.time_series.client.client import InfluxClient
 
 
 class InfluxMainModel:
-    client = InfluxClient().client
+    _client = None
+
+    @classmethod
+    def get_client(cls):
+        if cls._client is None:
+            cls._client = InfluxClient().client
+        return cls._client
 
     def device_main_point(
                   self,
