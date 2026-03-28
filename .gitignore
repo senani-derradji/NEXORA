@@ -20,3 +20,4 @@ dz.py
 .vscode
 .env
 nexora/
+scripts/clean_envs.ps1

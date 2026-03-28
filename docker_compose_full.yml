@@ -1,13 +1,49 @@
 services:
 
-  v_lab_fortinet_firewall:
-    build:
-      context: ./v_labs/fortinet_firewall
-      dockerfile: Dockerfile
+  # v_lab_fortinet_firewall:
+  #   build:
+  #     context: ./v_labs/fortinet_firewall
+  #     dockerfile: Dockerfile
 
-    container_name: f_firewall
+  #   container_name: f_firewall
+  #   restart: unless-stopped
+  #   profiles: [vlab]
+  #   expose: ["161/udp"]
+  #   networks:
+  #     my_shared_network:
+  #       ipv4_address: 172.18.0.2
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: "0.2"
+  #         memory: 64m
+  # v_lab_linux:
+  #   build:
+  #     context: ./v_labs/linux_
+  #     dockerfile: Dockerfile
+
+  #   container_name: linux
+  #   restart: unless-stopped
+  #   profiles: [vlab]
+  #   expose: ["161/udp"]
+  #   networks:
+  #     my_shared_network:
+  #       ipv4_address: 172.18.0.9
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: "0.2"
+  #         memory: 64m
+
+  v_lab_switch:
+    build:
+      context: ./v_labs/micro_switch
+      dockerfile: Dockerfile
+    container_name: mikrotik-switch
+    hostname: MikroTik-Switch-SIM
     restart: unless-stopped
     profiles: [vlab]
+    privileged: true
     expose: ["161/udp"]
     networks:
       my_shared_network:
@@ -15,16 +51,18 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.2"
-          memory: 64m
-  v_lab_linux:
-    build:
-      context: ./v_labs/linux_
-      dockerfile: Dockerfile
+          cpus: "0.3"
+          memory: 128m
 
-    container_name: linux
+  v_lab_router:
+    build:
+      context: ./v_labs/micro_router
+      dockerfile: Dockerfile
+    container_name: mikrotik-router
+    hostname: MikroTik-Router-SIM
     restart: unless-stopped
     profiles: [vlab]
+    privileged: true
     expose: ["161/udp"]
     networks:
       my_shared_network:
@@ -32,8 +70,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.2"
-          memory: 64m
+          cpus: "0.3"
+          memory: 128m
 
   postgres:
     image: postgres:16-alpine

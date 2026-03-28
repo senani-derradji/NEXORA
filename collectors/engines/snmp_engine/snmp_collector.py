@@ -203,16 +203,6 @@ class SNMPMonitor:
             return None, 100.0
 
     def _get_cpu_usage(self, ip: str, device_type: str = "linux") -> Optional[float]:
-        """
-        Get CPU usage for the device. Tries multiple OIDs based on device type.
-
-        For Linux systems with UCD-SNMP-MIB, uses RAW counters which require
-        sampling over time to calculate CPU percentage.
-
-        Args:
-            ip: Device IP address
-            device_type: Type of device (linux, cisco, juniper, hp, dell, mikrotik, etc.)
-        """
 
         device_type = device_type.lower() if device_type else "linux"
 
@@ -255,16 +245,10 @@ class SNMPMonitor:
         return None
 
     def _get_cpu_from_raw_counters(self, ip: str) -> Optional[float]:
-        """
-        Calculate CPU usage from RAW counters (UCD-SNMP-MIB).
 
-        RAW counters are cumulative values that need to be sampled twice
-        over a time interval to calculate the percentage.
-
-        Returns CPU usage as a percentage (0-100).
-        """
         def parse_cpu_value(value):
-            """Parse CPU value from SNMP response - handle bytes, strings, and empty values."""
+            if not value:
+                return None
             if value is None:
                 return None
             if isinstance(value, bytes):
@@ -382,16 +366,22 @@ class SNMPMonitor:
     def _get_interface_stats(self, ip: str) -> Dict[str, Any]:
 
         stats = {
-            "in_bytes": 0,
-            "out_bytes": 0,
-            "in_packets": 0,
-            "out_packets": 0,
-            "in_errors": 0,
-            "out_errors": 0,
-        }
+        "in_bytes": 0,
+        "out_bytes": 0,
+        "in_packets": 0,
+        "out_packets": 0,
+        "in_errors": 0,
+        "out_errors": 0,
+    }
 
         try:
             oper_status = self.snmp_walk(ip, self.OID_IF_OPER)
+            in_octets = self.snmp_walk(ip, self.OID_IF_IN_OCTETS)
+            out_octets = self.snmp_walk(ip, self.OID_IF_OUT_OCTETS)
+            in_packets = self.snmp_walk(ip, self.OID_IF_IN_PACKETS)
+            out_packets = self.snmp_walk(ip, self.OID_IF_OUT_PACKETS)
+            in_errors = self.snmp_walk(ip, self.OID_IF_IN_ERRORS)
+            out_errors = self.snmp_walk(ip, self.OID_IF_OUT_ERRORS)
 
             for oid, status in oper_status.items():
                 idx = oid.split(".")[-1]
@@ -399,30 +389,15 @@ class SNMPMonitor:
                 if int(status) != self.IF_STATUS_UP:
                     continue
 
-                in_octets = self.snmp_get(ip, f"{self.OID_IF_IN_OCTETS}.{idx}")
-                out_octets = self.snmp_get(ip, f"{self.OID_IF_OUT_OCTETS}.{idx}")
-
-                in_packets_val = self.snmp_get(ip, f"{self.OID_IF_IN_PACKETS}.{idx}")
-                out_packets_val = self.snmp_get(ip, f"{self.OID_IF_OUT_PACKETS}.{idx}")
-
-                in_errors_val = self.snmp_get(ip, f"{self.OID_IF_IN_ERRORS}.{idx}")
-                out_errors_val = self.snmp_get(ip, f"{self.OID_IF_OUT_ERRORS}.{idx}")
-
                 if idx == self.LOOPBACK_INTERFACE_INDEX:
                     continue
 
-                if in_octets[1]:
-                    stats["in_bytes"] += int(in_octets[0])
-                if out_octets[1]:
-                    stats["out_bytes"] += int(out_octets[0])
-                if in_packets_val[1]:
-                    stats["in_packets"] += int(in_packets_val[0])
-                if out_packets_val[1]:
-                    stats["out_packets"] += int(out_packets_val[0])
-                if in_errors_val[1]:
-                    stats["in_errors"] += int(in_errors_val[0])
-                if out_errors_val[1]:
-                    stats["out_errors"] += int(out_errors_val[0])
+                stats["in_bytes"] += int(in_octets.get(f"{self.OID_IF_IN_OCTETS}.{idx}", 0))
+                stats["out_bytes"] += int(out_octets.get(f"{self.OID_IF_OUT_OCTETS}.{idx}", 0))
+                stats["in_packets"] += int(in_packets.get(f"{self.OID_IF_IN_PACKETS}.{idx}", 0))
+                stats["out_packets"] += int(out_packets.get(f"{self.OID_IF_OUT_PACKETS}.{idx}", 0))
+                stats["in_errors"] += int(in_errors.get(f"{self.OID_IF_IN_ERRORS}.{idx}", 0))
+                stats["out_errors"] += int(out_errors.get(f"{self.OID_IF_OUT_ERRORS}.{idx}", 0))
 
         except Exception as e:
             self.logger.error(f"Error getting interface stats for {ip}: {e}")
