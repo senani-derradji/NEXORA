@@ -107,16 +107,27 @@ class AlertEngine:
         return True
 
     def _send_telegram(self, message: str, level: str = "WARNING"):
-        """
-        Example real implementation:
-            import requests
-            BOT_TOKEN = "your_bot_token"
-            CHAT_ID   = "your_chat_id"
-            url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-            requests.post(url, json={"chat_id": CHAT_ID, "text": f"[{level}] {message}"})
-        """
+        import requests
 
-        prefix = {"CRITICAL": "🔴", "WARNING": "🟡", "INFO": "🔵"}.get(level, "⚪")
+        BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+        CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+
+        prefix = {
+            "CRITICAL": "🔴",
+            "WARNING": "🟡",
+            "INFO": "🔵"
+        }.get(level, "⚪")
+
+        text = f"{prefix} <b>[{level}]</b>\n{message}"
+
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+
+        requests.post(url, json={
+            "chat_id": CHAT_ID,
+            "text": text,
+            "parse_mode": "HTML"
+        })
+
         print(f"{prefix} [TELEGRAM/{level}] {message}")
 
     def cpu_alert(self, cpu, host: str = "unknown"):

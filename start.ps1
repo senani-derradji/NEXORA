@@ -47,6 +47,9 @@ $coreConfigsEnvContent = @"
 DATABASE_URL=postgresql+psycopg2://nexorauser:nexorapass@postgres:5432/nexoradb
 
 INFLUXDB_INIT_ADMIN_TOKEN=Token
+INFLUXDB_URL=http://influxdb:8086
+TELEGRAM_BOT_TOKEN=BOT
+TELEGRAM_CHAT_ID=CHAT
 "@
 
 $coreTimeSeriesEnvContent = @"
@@ -126,14 +129,30 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
 $token = Read-Host "Paste the InfluxDB token here"
+$telegramChatID = Read-Host "Paste the Telegram chat ID here"
+$telegramBotToken = Read-Host "Paste the Telegram bot token here"
+
 
 if ([string]::IsNullOrWhiteSpace($token)) {
     Write-Host "Error: Token cannot be empty!" -ForegroundColor Red
     exit 1
 }
+if ([string]::IsNullOrWhiteSpace($telegramChatID)) {
+    Write-Host "Error: Telegram chat ID cannot be empty!" -ForegroundColor Red
+    exit 1
+}
+if ([string]::IsNullOrWhiteSpace($telegramBotToken)) {
+    Write-Host "Error: Telegram bot token cannot be empty!" -ForegroundColor Red
+    exit 1
+}
 
+write-host "========================================"
 Write-Host ""
 Write-Host "Token received: $token" -ForegroundColor Green
+Write-Host "Telegram chat ID received: $telegramChatID" -ForegroundColor Green
+Write-Host "Telegram bot token received: $telegramBotToken" -ForegroundColor Green
+Write-Host ""
+Write-Host "========================================"
 
 # ---------------- ENV UPDATE ----------------
 Write-Host "Updating .env files with token..."
@@ -156,8 +175,17 @@ foreach ($f in $files) {
         if ($txt -match "INFLUXDB_INIT_ADMIN_TOKEN=.*") {
             $txt = $txt -replace "INFLUXDB_INIT_ADMIN_TOKEN=.*\r?\n?", ""
         }
+        if ($txt -match "TELEGRAM_CHAT_ID=.*") {
+            $txt = $txt -replace "TELEGRAM_CHAT_ID=.*\r?\n?", ""
+        }
+        if ($txt -match "TELEGRAM_BOT_TOKEN=.*") {
+            $txt = $txt -replace "TELEGRAM_BOT_TOKEN=.*\r?\n?", ""
+        }
+
 
         $txt += "`r`nINFLUXDB_INIT_ADMIN_TOKEN=$token"
+        $txt += "`r`nTELEGRAM_CHAT_ID=$telegramChatID"
+        $txt += "`r`nTELEGRAM_BOT_TOKEN=$telegramBotToken"
 
         Set-Content $f $txt
         Write-Host "Updated $f"
@@ -186,4 +214,5 @@ Write-Host ""
 
 Write-Host ""
 Write-Host "Starting full stack..."
+
 docker compose -f $ComposeFile --profile $Profile up --build

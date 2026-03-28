@@ -1,326 +1,5 @@
 services:
 
-  v_lab_fortinet_firewall:
-    build:
-      context: ./v_labs/fortinet_firewall
-      dockerfile: Dockerfile
-
-    container_name: f_firewall
-    restart: unless-stopped
-    profiles: [vlab]
-    expose: ["161/udp"]
-    networks:
-      my_shared_network:
-        ipv4_address: 172.18.0.2
-    deploy:
-      resources:
-        limits:
-          cpus: "0.2"
-          memory: 64m
-  v_lab_linux:
-    build:
-      context: ./v_labs/linux_
-      dockerfile: Dockerfile
-
-    container_name: linux
-    restart: unless-stopped
-    profiles: [vlab]
-    expose: ["161/udp"]
-    networks:
-      my_shared_network:
-        ipv4_address: 172.18.0.9
-    deploy:
-      resources:
-        limits:
-          cpus: "0.2"
-          memory: 64m
-
-  # v_lab_windows:
-  #   build:
-  #     context: ./v_labs/win_
-  #     dockerfile: Dockerfile
-
-  #   container_name: windows
-  #   restart: unless-stopped
-  #   profiles: [vlab]
-  #   expose: ["161/udp"]
-  #   networks:
-  #     my_shared_network:
-  #       ipv4_address: 172.18.0.8
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         cpus: "0.2"
-  #         memory: 64m
-
-  # v_lab_micro_router:
-  #   build:
-  #     context: ./v_labs/micro_router
-  #     dockerfile: Dockerfile
-
-  #   container_name: m_router
-  #   restart: unless-stopped
-  #   profiles: [vlab]
-  #   expose: ["161/udp"]
-  #   networks:
-  #     my_shared_network:
-  #       ipv4_address: 172.18.0.7
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         cpus: "0.2"
-  #         memory: 64m
-
-  postgres:
-    image: postgres:16-alpine
-    container_name: postgres
-    restart: unless-stopped
-    profiles: [prod, vlab]
-
-    environment:
-      POSTGRES_USER:     ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB:       ${POSTGRES_DB}
-      TZ: UTC
-      PGTZ: UTC
-
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./docker/init_postgres.sql:/docker-entrypoint-initdb.d/init.sql:ro
-
-    ports:
-      - "5432:5432"
-
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
-    networks:
-      my_shared_network:
-        ipv4_address: 172.18.0.20
-
-    deploy:
-      resources:
-        limits:
-          cpus: "0.25"
-          memory: 256m
-        reservations:
-          memory: 128m
-
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-
-  influxdb:
-    image: influxdb:2
-    container_name: influxdb
-    restart: unless-stopped
-    profiles: [prod, vlab]
-
-    environment:
-      DOCKER_INFLUXDB_INIT_MODE: setup
-      DOCKER_INFLUXDB_INIT_USERNAME:       ${INFLUXDB_ADMIN_USER}
-      DOCKER_INFLUXDB_INIT_PASSWORD:   ${INFLUXDB_ADMIN_PASSWORD}
-      DOCKER_INFLUXDB_INIT_DB:               ${INFLUXDB_DB}
-      DOCKER_INFLUXDB_INIT_ORG:              ${INFLUXDB_ORG}
-      DOCKER_INFLUXDB_INIT_BUCKET:           ${INFLUXDB_BUCKET}
-      DOCKER_INFLUXDB_INIT_OPERATOR_TOKEN: ${INFLUXDB_INIT_ADMIN_TOKEN}
-
-    # volumes:
-    #   - influxdb2-data:/var/lib/influxdb2
-
-    ports:
-      - "8086:8086"
-
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f -H 'Authorization: Token ${INFLUXDB_INIT_ADMIN_TOKEN}' http://localhost:8086/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
-
-    networks:
-      my_shared_network:
-        ipv4_address: 172.18.0.10
-
-    # deploy:
-    #   resources:
-    #     limits:
-    #       cpus: "0.5"
-    #       memory: 512m
-    #     reservations:
-    #       memory: 256m
-
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-
-  core:
-    build:
-      context: ./core
-      dockerfile: Dockerfile
-    container_name: core
-    restart: unless-stopped
-    profiles: [prod, vlab]
-
-    env_file:
-      - ./core/configs/.env
-      - ./core/time_series/config/.env
-
-    environment:
-      PYTHONDONTWRITEBYTECODE: "1"
-      PYTHONUNBUFFERED: "1"
-      TZ: UTC
-
-    ports:
-      - "50051:50051"
-
-    depends_on:
-      postgres:
-        condition: service_healthy
-      influxdb:
-        condition: service_healthy
-
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import grpc; ch=grpc.insecure_channel('localhost:50051'); grpc.channel_ready_future(ch).result(timeout=5)\" && echo ok"]
-      interval: 15s
-      timeout: 10s
-      retries: 5
-      start_period: 20s
-
-    networks:
-      my_shared_network:
-        ipv4_address: 172.18.0.30
-
-    # deploy:
-    #   resources:
-    #     limits:
-    #       cpus: "0.5"
-    #       memory: 256m
-    #     reservations:
-    #       memory: 128m
-
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "5"
-
-
-  collectors:
-    build:
-      context: ./collectors
-      dockerfile: Dockerfile
-    container_name: collectors
-    restart: unless-stopped
-    profiles: [prod, vlab]
-
-    env_file:
-      - ./collectors/config/db_config/.env
-
-    environment:
-      PYTHONDONTWRITEBYTECODE: "1"
-      PYTHONUNBUFFERED: "1"
-      TZ: UTC
-
-    depends_on:
-      postgres:
-        condition: service_healthy
-      core:
-        condition: service_healthy
-
-    healthcheck:
-      test: ["CMD-SHELL", "pgrep -f 'python.*main.py' || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
-
-    networks:
-      my_shared_network:
-        ipv4_address: 172.18.0.40
-
-    # deploy:
-    #   resources:
-    #     limits:
-    #       cpus: "0.5"
-    #       memory: 256m
-    #     reservations:
-    #       memory: 128m
-
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "5"
-
-    # volumes:
-    #   - ./collectors/config/devices.yml:/collectors/config/devices.yml:rw
-
-
-
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: backend
-    restart: unless-stopped
-    profiles: [prod, vlab]
-
-    env_file:
-      - ./backend/.env
-
-    environment:
-      PYTHONDONTWRITEBYTECODE: "1"
-      PYTHONUNBUFFERED: "1"
-      TZ: UTC
-
-    ports:
-      - "8000:8000"
-
-    depends_on:
-      postgres:
-        condition: service_healthy
-      core:
-        condition: service_healthy
-      collectors:
-        condition: service_started
-
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-
-    networks:
-      my_shared_network:
-        ipv4_address: 172.18.0.50
-
-    # deploy:
-    #   resources:
-    #     limits:
-    #       cpus: "0.5"
-    #       memory: 256m
-    #     reservations:
-    #       memory: 128m
-
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "5"
-
-
 
   # v_lab_linux_2:
   #   build:
@@ -393,6 +72,330 @@ services:
   #       limits:
   #         cpus: "0.2"
   #         memory: 64m
+
+
+  # v_lab_windows:
+  #   build:
+  #     context: ./v_labs/win_
+  #     dockerfile: Dockerfile
+
+  #   container_name: windows
+  #   restart: unless-stopped
+  #   profiles: [vlab]
+  #   expose: ["161/udp"]
+  #   networks:
+  #     my_shared_network:
+  #       ipv4_address: 172.18.0.8
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: "0.2"
+  #         memory: 64m
+
+  # v_lab_micro_router:
+  #   build:
+  #     context: ./v_labs/micro_router
+  #     dockerfile: Dockerfile
+
+  #   container_name: m_router
+  #   restart: unless-stopped
+  #   profiles: [vlab]
+  #   expose: ["161/udp"]
+  #   networks:
+  #     my_shared_network:
+  #       ipv4_address: 172.18.0.7
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: "0.2"
+  #         memory: 64m
+
+
+
+
+  v_lab_fortinet_firewall:
+    build:
+      context: ./v_labs/fortinet_firewall
+      dockerfile: Dockerfile
+
+    container_name: f_firewall
+    restart: unless-stopped
+    profiles: [vlab]
+    expose: ["161/udp"]
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.2
+    deploy:
+      resources:
+        limits:
+          cpus: "0.2"
+          memory: 64m
+  v_lab_linux:
+    build:
+      context: ./v_labs/linux_
+      dockerfile: Dockerfile
+
+    container_name: linux
+    restart: unless-stopped
+    profiles: [vlab]
+    expose: ["161/udp"]
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.9
+    deploy:
+      resources:
+        limits:
+          cpus: "0.2"
+          memory: 64m
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    restart: unless-stopped
+    profiles: [prod, vlab]
+
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB:       ${POSTGRES_DB}
+      TZ: UTC
+      PGTZ: UTC
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init_postgres.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+    ports:
+      - "5432:5432"
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.20
+
+    deploy:
+      resources:
+        limits:
+          cpus: "0.3"
+          memory: 256m
+        reservations:
+          memory: 128m
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+
+  influxdb:
+    image: influxdb:2
+    container_name: influxdb
+    restart: unless-stopped
+    profiles: [prod, vlab]
+
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME:       ${INFLUXDB_ADMIN_USER}
+      DOCKER_INFLUXDB_INIT_PASSWORD:   ${INFLUXDB_ADMIN_PASSWORD}
+      DOCKER_INFLUXDB_INIT_DB:               ${INFLUXDB_DB}
+      DOCKER_INFLUXDB_INIT_ORG:              ${INFLUXDB_ORG}
+      DOCKER_INFLUXDB_INIT_BUCKET:           ${INFLUXDB_BUCKET}
+      DOCKER_INFLUXDB_INIT_OPERATOR_TOKEN: ${INFLUXDB_INIT_ADMIN_TOKEN}
+
+    # volumes:
+    #   - influxdb2-data:/var/lib/influxdb2
+
+    ports:
+      - "8086:8086"
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f -H 'Authorization: Token ${INFLUXDB_INIT_ADMIN_TOKEN}' http://localhost:8086/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.10
+
+    deploy:
+      resources:
+        limits:
+          cpus: "0.3"
+          memory: 256m
+        reservations:
+          memory: 128m
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+
+  core:
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    container_name: core
+    restart: unless-stopped
+    profiles: [prod, vlab]
+
+    env_file:
+      - ./core/configs/.env
+      - ./core/time_series/config/.env
+
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+      TZ: UTC
+
+    ports:
+      - "50051:50051"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import grpc; ch=grpc.insecure_channel('localhost:50051'); grpc.channel_ready_future(ch).result(timeout=5)\" && echo ok"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.30
+
+    deploy:
+      resources:
+        limits:
+          cpus: "0.4"
+          memory: 256m
+        reservations:
+          memory: 128m
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+
+  collectors:
+    build:
+      context: ./collectors
+      dockerfile: Dockerfile
+    container_name: collectors
+    restart: unless-stopped
+    profiles: [prod, vlab]
+
+    env_file:
+      - ./collectors/config/db_config/.env
+
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+      TZ: UTC
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      core:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'python.*main.py' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.40
+
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
+        reservations:
+          memory: 128m
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+    # volumes:
+    #   - ./collectors/config/devices.yml:/collectors/config/devices.yml:rw
+
+
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend
+    restart: unless-stopped
+    profiles: [prod, vlab]
+
+    env_file:
+      - ./backend/.env
+
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+      TZ: UTC
+
+    ports:
+      - "8000:8000"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      core:
+        condition: service_healthy
+      collectors:
+        condition: service_started
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.50
+
+    deploy:
+      resources:
+        limits:
+          cpus: "0.4"
+          memory: 256m
+        reservations:
+          memory: 128m
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
 
 
 

@@ -63,20 +63,6 @@ class InfluxReader:
         aggregation: str = "mean",
         window: str = "1m"
     ) -> str:
-        """
-        Build a Flux query for time-series data.
-
-        Args:
-            field: The field name to query (e.g., 'cpu_usage', 'ram_usage')
-            duration: Time range (e.g., '1h', '24h', '7d')
-            devices: Optional list of device names to filter
-            aggregation: Aggregation function ('mean', 'max', 'min', 'sum')
-            window: Window size for aggregation ('10s', '1m', '5m', etc.)
-
-        Returns:
-            Flux query string
-        """
-        # Device filter
         device_filter = ""
         if devices and len(devices) > 0:
             conditions = " or ".join([f'r["device_name"] == "{d}"' for d in devices])
@@ -155,14 +141,7 @@ from(bucket: "{self.bucket}")
             return []
 
     def get_latest_values(self, fields: List[str], devices: Optional[List[str]] = None) -> List[Dict[str, Any]]:
-        """
-        Get the latest values for given fields and devices.
-        Uses sort + limit instead of last() to get more accurate results.
 
-        IMPORTANT: Uses now() range to ensure we get truly latest data,
-        not data from a fixed 1 hour window that might not include recent points.
-        """
-        # Device filter
         device_filter = ""
         if devices and len(devices) > 0:
             conditions = " or ".join([f'r["device_name"] == "{d}"' for d in devices])
@@ -212,12 +191,9 @@ from(bucket: "{self.bucket}")
             self.client.close()
             print("[InfluxReader] Connection closed", flush=True)
 
-
-# Singleton instance for reuse across the application
 _reader_instance = None
 
 def get_influx_reader() -> InfluxReader:
-    """Get or create a singleton InfluxReader instance"""
     global _reader_instance
     if _reader_instance is None:
         _reader_instance = InfluxReader()
