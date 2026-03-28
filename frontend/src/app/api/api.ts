@@ -1,13 +1,9 @@
-// API Base URL - uses Vite environment variable or defaults to relative path (for Docker/nginx)
-// For local dev without Docker: http://localhost:8000
-// For Docker: use relative path /
 import { apiLogger } from '../utils/logger';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/';
 
 apiLogger.info('API initialized with base URL:', API_BASE_URL);
 
-// ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface User {
   id: number;
@@ -50,7 +46,6 @@ export interface DashboardSummary {
 export interface MetricDataPoint {
   timestamp: string;
   value: number;
-  // Network metrics can have value_in and value_out
   value_in?: number;
   value_out?: number;
 }
@@ -83,7 +78,6 @@ export interface TopologyData {
   devices: TopologyNode[];
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function getToken(): string | null {
   return localStorage.getItem('nexora_token');

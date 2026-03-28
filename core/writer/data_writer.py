@@ -9,7 +9,6 @@ from nexora_db.operations.devices_ops import DeviceOperations
 from core.alert_engine.CoreAlertEngine import AlertEngine
 from core.utils.logger import setup_logger
 
-# Setup logger
 logger = setup_logger('core.writer', level=20)
 
 
@@ -47,7 +46,6 @@ PAYLOAD ::::
         device = self.deviceOPS.get_device_by_ip(ip_address=payload["ip_address"])
 
         if device is None:
-            # Create the device and get its ID
             new_device = self.deviceOPS.create_device(
                 hostname=payload["hostname"],
                 device_type=payload["device_type"],
@@ -55,12 +53,10 @@ PAYLOAD ::::
                 mac_address=payload["mac_address"],
                 status=payload["status"]
             )
-            # Force commit by getting a fresh session and retrieving the device
             from nexora_db.database import get_db
             session = next(get_db())
             session.commit()
 
-            # Get the device ID after creation
             device = self.deviceOPS.get_device_by_ip(ip_address=payload["ip_address"])
             logger.info(f"[WRITER] Created new device: {payload['hostname']} with id: {device.id if device else 'unknown'}")
         else:
@@ -71,7 +67,6 @@ PAYLOAD ::::
                 last_seen=datetime.now(timezone.utc)
             )
 
-        # Pass device_id to alert engine to avoid lookup issues
         if device is None:
             logger.error(f"[WRITER] FAILED to get device ID for {payload['hostname']} - alerts will not be created!")
             device_id = None

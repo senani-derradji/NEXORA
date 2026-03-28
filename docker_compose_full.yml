@@ -1,118 +1,5 @@
 services:
 
-
-  # v_lab_linux_2:
-  #   build:
-  #     context: ./v_labs/linux_
-  #     dockerfile: Dockerfile
-
-  #   container_name: linux_2
-  #   restart: unless-stopped
-  #   profiles: [vlab]
-  #   expose: ["161/udp"]
-  #   networks:
-  #     my_shared_network:
-  #       ipv4_address: 172.18.0.5
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         cpus: "0.2"
-  #         memory: 64m
-
-  # v_lab_linux_3:
-  #   build:
-  #     context: ./v_labs/linux_
-  #     dockerfile: Dockerfile
-
-  #   container_name: linux_3
-  #   restart: unless-stopped
-  #   profiles: [vlab]
-  #   expose: ["161/udp"]
-  #   networks:
-  #     my_shared_network:
-  #       ipv4_address: 172.18.0.4
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         cpus: "0.2"
-  #         memory: 64m
-
-  # v_lab_linux_4:
-  #   build:
-  #     context: ./v_labs/linux_
-  #     dockerfile: Dockerfile
-
-  #   container_name: linux_4
-  #   restart: unless-stopped
-  #   profiles: [vlab]
-  #   expose: ["161/udp"]
-  #   networks:
-  #     my_shared_network:
-  #       ipv4_address: 172.18.0.3
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         cpus: "0.2"
-  #         memory: 64m
-
-  # v_lab_micro_switch:
-  #   build:
-  #     context: ./v_labs/micro_switch
-  #     dockerfile: Dockerfile
-
-  #   container_name: m_switch
-  #   restart: unless-stopped
-  #   profiles: [vlab]
-  #   expose: ["161/udp"]
-  #   networks:
-  #     my_shared_network:
-  #       ipv4_address: 172.18.0.6
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         cpus: "0.2"
-  #         memory: 64m
-
-
-  # v_lab_windows:
-  #   build:
-  #     context: ./v_labs/win_
-  #     dockerfile: Dockerfile
-
-  #   container_name: windows
-  #   restart: unless-stopped
-  #   profiles: [vlab]
-  #   expose: ["161/udp"]
-  #   networks:
-  #     my_shared_network:
-  #       ipv4_address: 172.18.0.8
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         cpus: "0.2"
-  #         memory: 64m
-
-  # v_lab_micro_router:
-  #   build:
-  #     context: ./v_labs/micro_router
-  #     dockerfile: Dockerfile
-
-  #   container_name: m_router
-  #   restart: unless-stopped
-  #   profiles: [vlab]
-  #   expose: ["161/udp"]
-  #   networks:
-  #     my_shared_network:
-  #       ipv4_address: 172.18.0.7
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         cpus: "0.2"
-  #         memory: 64m
-
-
-
-
   v_lab_fortinet_firewall:
     build:
       context: ./v_labs/fortinet_firewall
@@ -208,9 +95,6 @@ services:
       DOCKER_INFLUXDB_INIT_ORG:              ${INFLUXDB_ORG}
       DOCKER_INFLUXDB_INIT_BUCKET:           ${INFLUXDB_BUCKET}
       DOCKER_INFLUXDB_INIT_OPERATOR_TOKEN: ${INFLUXDB_INIT_ADMIN_TOKEN}
-
-    # volumes:
-    #   - influxdb2-data:/var/lib/influxdb2
 
     ports:
       - "8086:8086"
@@ -340,8 +224,6 @@ services:
         max-size: "10m"
         max-file: "5"
 
-    # volumes:
-    #   - ./collectors/config/devices.yml:/collectors/config/devices.yml:rw
 
 
 
@@ -426,8 +308,6 @@ services:
 volumes:
   postgres_data:
     driver: local
-  # influxdb2-data:
-  #   driver: local
 
 networks:
   my_shared_network:

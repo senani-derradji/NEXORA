@@ -189,13 +189,12 @@ export function AlertsPage() {
         const lastId = lastAlertIdRef.current;
 
         if (lastId > 0) {
-          console.log(`[Alerts] 🔄 Incremental fetch (after_id mode): after_id=${lastId}`);
+          console.log(`[Alerts] Incremental fetch (after_id mode): after_id=${lastId}`);
           data = await alertsAPI.getAlertsAfter(lastId, INCREMENTAL_FETCH_LIMIT);
           newAlerts = data.alerts || [];
-          console.log(`[Alerts] 🔄 Found ${newAlerts.length} new alerts`);
+          console.log(`[Alerts] Found ${newAlerts.length} new alerts`);
         } else {
-          // Edge case: No lastId yet, fallback to initial load
-          console.log('[Alerts] ⚠️ No lastId, falling back to initial load...');
+          console.log('[Alerts] No lastId, falling back to initial load...');
           data = await alertsAPI.getAlerts(1, INITIAL_FETCH_SIZE);
           newAlerts = data.alerts || [];
         }
@@ -206,7 +205,7 @@ export function AlertsPage() {
         const maxId = Math.max(...newAlerts.map(a => a.id || 0));
         if (maxId > lastAlertIdRef.current) {
           lastAlertIdRef.current = maxId;
-          console.log(`[Alerts] ✅ Updated lastAlertId to: ${maxId}`);
+          console.log(`[Alerts] Updated lastAlertId to: ${maxId}`);
         }
       }
 

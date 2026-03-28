@@ -4,7 +4,6 @@ class Normalizer:
 
     @staticmethod
     def normalize(raw_metric):
-        # Check if device is DOWN - if so, send None for metrics to preserve old values
         is_device_down = raw_metric.get("status") in ("down", "DOWN")
 
         return {
@@ -17,14 +16,12 @@ class Normalizer:
                 },
 
             "sys": {
-                # For DOWN devices, send None to preserve old metrics in InfluxDB
                 "cpu": None if is_device_down else raw_metric.get("cpu"),
                 "ram": None if is_device_down else raw_metric.get("ram"),
                 "disk": None if is_device_down else raw_metric.get("disk"),
             },
 
             "net": {
-                # For DOWN devices, send None to preserve old metrics in InfluxDB
                 "in_bytes": None if is_device_down else raw_metric.get("in_bytes"),
                 "out_bytes": None if is_device_down else raw_metric.get("out_bytes"),
 

@@ -8,10 +8,7 @@ from transport.check_core_health import CoreHealth
 from buffer.buffer_manager import BufferManager
 from transport.grpc_client import CoreClient
 from utils.devices_ import DeviceBootstrapper
-# from engines.snmp_engine.utils.detect_vendor import detect_vendor
-# from engines.snmp_engine.utils.detect_type import detect_device_type
 
-# Create logger for collector
 logger = logging.getLogger('nexora.collector')
 
 
@@ -38,11 +35,7 @@ class Scheduler:
         interval = device.get("interval", 5)
 
         while True:
-            # alive = DeviceHeartbeat.is_alive(device["hostname"])
-            # if not alive:
-            #     normalized = Normalizer.normalize(down_metric(device=device))
             try:
-                # Run blocking SNMP operations in thread pool for concurrent execution
                 raw_metrics = await asyncio.to_thread(
                     self.snmp_collector.collect_metrics_as_dataclass,
                     hostname=device["hostname"],
@@ -51,29 +44,21 @@ class Scheduler:
                     mac_placeholder=device["mac_address"]
                 )
 
-                # Set status to DOWN or UP
                 if raw_metrics.get("status") == "down":
                     raw_metrics["status"] = "DOWN"
                 else:
                     raw_metrics["status"] = "UP"
 
-                # Always send status to core (even when device is DOWN) so database gets updated
-                # For DOWN devices, we send minimal data (status only, metrics are None/0)
                 normalized = Normalizer.normalize(raw_metrics)
 
-                # Run blocking SNMP GET in thread pool
                 self.sys_object_id = await asyncio.to_thread(
                     self.snmp_collector.snmp_get,
                     ip=device["ip_address"],
                     oid=self.snmp_collector.OID_SYS_OBJECT_ID
                 )
 
-                # vendor = detect_vendor(self.sys_object_id)
-                # device_type = detect_device_type(self.sys_object_id)
 
-                # logger.info(f"[{device['hostname']}] Metrics collected successfully - Vendor: {vendor}, Type: {device_type}")
 
-                # Run gRPC send in thread pool to avoid blocking
                 if CoreHealth.check(host=self.host, port=self.port, timeout=3):
                     self.buffer.push_data(metric=normalized, status=True)
                     get = self.buffer.pop_data()

@@ -4,10 +4,6 @@ from typing import List, Dict, Any, Optional
 
 
 class InfluxReader:
-    """
-    Centralized InfluxDB reader for querying time-series data.
-    Uses influxdb-client library instead of raw HTTP requests.
-    """
 
     def __init__(self):
         self.url = os.getenv("INFLUXDB_URL", "http://influxdb:8086")
@@ -15,7 +11,6 @@ class InfluxReader:
         self.org = os.getenv("INFLUXDB_ORG", "myorg")
         self.bucket = os.getenv("INFLUXDB_BUCKET", "dr_test")
 
-        # Measurement name from core/time_series/models/main_model.py
         self.measurement = "DEVICE_STATS_V1"
 
         print(f"[InfluxReader] Init → {self.url}, bucket={self.bucket}, org={self.org}", flush=True)
@@ -29,7 +24,6 @@ class InfluxReader:
         self.query_api = self.client.query_api()
 
     def query(self, flux: str) -> List[Dict[str, Any]]:
-        """Execute a Flux query and return structured results"""
         print("[InfluxReader] Executing query:", flush=True)
         print(flux, flush=True)
 
@@ -88,17 +82,11 @@ from(bucket: "{self.bucket}")
         duration: str = "1h",
         devices: Optional[List[str]] = None
     ) -> str:
-        """
-        Build a query to get summary statistics (average) for multiple fields.
-        Used for dashboard summary.
-        """
-        # Device filter
         device_filter = ""
         if devices and len(devices) > 0:
             conditions = " or ".join([f'r["device_name"] == "{d}"' for d in devices])
             device_filter = f'|> filter(fn: (r) => {conditions})'
 
-        # Filter for specific fields
         field_conditions = " or ".join([f'r["_field"] == "{f}"' for f in fields])
 
         query = f"""
@@ -147,12 +135,8 @@ from(bucket: "{self.bucket}")
             conditions = " or ".join([f'r["device_name"] == "{d}"' for d in devices])
             device_filter = f'|> filter(fn: (r) => {conditions})'
 
-        # Field filter
         field_conditions = " or ".join([f'r["_field"] == "{f}"' for f in fields])
 
-        # Use a larger time range to ensure we capture latest data
-        # Also use sort + limit to get most recent points per device/field
-        # NOTE: Using -24h without comment to avoid # being interpreted as comment in Flux
         query = f"""
 from(bucket: "{self.bucket}")
   |> range(start: -24h)
@@ -186,7 +170,6 @@ from(bucket: "{self.bucket}")
             return []
 
     def close(self):
-        """Close the InfluxDB client connection"""
         if self.client:
             self.client.close()
             print("[InfluxReader] Connection closed", flush=True)

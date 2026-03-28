@@ -10,8 +10,7 @@ from nexora_db.models.devices_model import Device
 from nexora_db.models.alerts_model import Alerts
 from config import init
 
-# Setup logger
-logger = setup_logger('backend.main', level=20)  # INFO level
+logger = setup_logger('backend.main', level=20)
 
 app = FastAPI(
     title="NEXORA Backend API",
@@ -19,7 +18,6 @@ app = FastAPI(
     description="Backend API for Nexora Observability Platform"
 )
 
-# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -46,7 +44,6 @@ def health():
     return {"status": "ok", "service": "nexora-backend"}
 
 
-# Test endpoint for nginx connectivity
 @app.get("/test", tags=["system"])
 def test():
     logger.info("Test endpoint called")
@@ -70,7 +67,6 @@ logger.info("Registered dashboard router at /dashboard")
 app.include_router(metrics.router, prefix="/metrics", tags=["metrics"])
 logger.info("Registered metrics router at /metrics")
 
-# Register WebSocket router
 app.include_router(alerts_ws_router)
 logger.info("Registered WebSocket router at /ws/alerts")
 

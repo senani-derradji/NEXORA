@@ -5,15 +5,12 @@ import os
 
 def setup_logger(name: str, log_file: str = None, level=logging.INFO):
 
-    # Create logger
     logger = logging.getLogger(name)
     logger.setLevel(level)
 
-    # Avoid duplicate handlers
     if logger.handlers:
         return logger
 
-    # Create formatters
     detailed_formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
@@ -24,15 +21,12 @@ def setup_logger(name: str, log_file: str = None, level=logging.INFO):
         datefmt='%H:%M:%S'
     )
 
-    # Console handler
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(level)
     console_handler.setFormatter(simple_formatter)
     logger.addHandler(console_handler)
 
-    # File handler (if log_file specified)
     if log_file:
-        # Ensure log directory exists
         log_dir = os.path.dirname(log_file)
         if log_dir and not os.path.exists(log_dir):
             os.makedirs(log_dir)
@@ -49,5 +43,4 @@ def setup_logger(name: str, log_file: str = None, level=logging.INFO):
     return logger
 
 
-# Default logger for collectors
 logger = setup_logger('collectors', level=20)  # INFO level

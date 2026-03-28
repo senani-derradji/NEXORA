@@ -1,6 +1,3 @@
-"""
-Alert broadcast helper - broadcasts new alerts to all connected WebSocket clients.
-"""
 import asyncio
 from typing import Optional
 from datetime import datetime
@@ -9,18 +6,6 @@ from api.websocket.alerts_ws import alert_ws_manager
 
 
 async def broadcast_alert(alert_data: dict):
-    """
-    Broadcast a new alert to all connected WebSocket clients.
-
-    Args:
-        alert_data: Dictionary containing alert information with keys:
-            - id: Alert ID
-            - message: Alert message
-            - severity: Alert severity (CRITICAL, WARNING, INFO)
-            - device_hostname: Device hostname
-            - device_ip: Device IP address
-            - timestamp: Alert timestamp
-    """
     message = {
         "type": "new_alert",
         "data": {
@@ -41,14 +26,9 @@ async def broadcast_alert(alert_data: dict):
 
 
 def broadcast_alert_sync(alert_data: dict):
-    """
-    Synchronous wrapper for broadcast_alert.
-    Used when alert creation happens in a non-async context.
-    """
     try:
         asyncio.create_task(broadcast_alert(alert_data))
     except RuntimeError:
-        # If there's no running event loop, create a new one
         import nest_asyncio
         try:
             nest_asyncio.apply()

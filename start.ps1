@@ -12,12 +12,10 @@ docker compose -f $ComposeFile --profile $Profile down -v | Out-Null
 Write-Host "Creating .env files..."
 
 $envContent = @"
-# PostgreSQL Configuration
 POSTGRES_USER=nexorauser
 POSTGRES_PASSWORD=nexorapass
 POSTGRES_DB=nexoradb
 
-# InfluxDB Configuration
 INFLUXDB_ADMIN_USER=admin
 INFLUXDB_ADMIN_PASSWORD=admin123
 INFLUXDB_DB=mydb
@@ -25,17 +23,14 @@ INFLUXDB_ORG=myorg
 INFLUXDB_BUCKET=dr_test
 INFLUXDB_INIT_ADMIN_TOKEN=Token
 
-# Frontend Configuration
 VITE_API_BASE_URL=/
 
-# Database URL
 DATABASE_URL=postgresql+psycopg2://nexorauser:nexorapass@postgres:5432/nexoradb
 "@
 
 $backendEnvContent = @"
 DATABASE_URL=postgresql+psycopg2://nexorauser:nexorapass@postgres:5432/nexoradb
 
-# InfluxDB connection (for querying metrics)
 INFLUXDB_URL=http://influxdb:8086
 INFLUXDB_ORG=myorg
 INFLUXDB_BUCKET=dr_test
@@ -65,12 +60,9 @@ DATABASE_URL=postgresql+psycopg2://nexorauser:nexorapass@postgres:5432/nexoradb
 
 # Frontend .env content
 $frontendEnvContent = @"
-# NEXORA Frontend Environment Variables
-# For Docker builds: use relative path (nginx proxies to backend)
 VITE_API_BASE_URL=http://backend:8000
 "@
 
-# Create .env files
 $envFiles = @{
     ".env" = $envContent
     "backend/.env" = $backendEnvContent
@@ -90,7 +82,6 @@ foreach ($file in $envFiles.Keys) {
     Write-Host "Created $file"
 }
 
-# ---------------- START INFLUX ----------------
 Write-Host "Starting InfluxDB..."
 docker compose -f $ComposeFile --profile $Profile up -d influxdb | Out-Null
 
@@ -154,7 +145,6 @@ Write-Host "Telegram bot token received: $telegramBotToken" -ForegroundColor Gre
 Write-Host ""
 Write-Host "========================================"
 
-# ---------------- ENV UPDATE ----------------
 Write-Host "Updating .env files with token..."
 
 $files = @(

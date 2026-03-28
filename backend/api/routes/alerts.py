@@ -7,7 +7,6 @@ from datetime import datetime
 from utils.logger import setup_logger
 from sqlalchemy.orm import joinedload
 
-# Setup logger
 logger = setup_logger('backend.alerts', level=20)
 
 init(url_env="DATABASE_URL")
@@ -16,11 +15,9 @@ router = APIRouter()
 
 DEFAULT_PAGE_SIZE = 100
 MAX_PAGE_SIZE = 500
-REALTIME_PAGE_SIZE = 10  # For real-time dashboard updates
+REALTIME_PAGE_SIZE = 10
 
 def _serialize_alert(alert):
-    """Serialize alert to JSON with proper field names for frontend"""
-    # Handle both timezone-aware and naive datetime
     def format_time(dt):
         if dt is None:
             return None
@@ -28,23 +25,18 @@ def _serialize_alert(alert):
             return dt.isoformat()
         return str(dt)
 
-    # Get device info from relationship if available
-    # Use safe check to avoid DetachedInstanceError
     device_hostname = None
     device_ip = None
     device_mac = None
     try:
-        # Check if the object is attached to a session
         from sqlalchemy import inspect as sqla_inspect
         if sqla_inspect(alert).detached:
-            # Object is detached, can't access relationship
             pass
         elif hasattr(alert, 'device') and alert.device is not None:
             device_hostname = alert.device.hostname
             device_ip = getattr(alert.device, 'ip_address', None) or getattr(alert.device, 'ip', None)
             device_mac = getattr(alert.device, 'mac_address', None) or getattr(alert.device, 'mac', None)
     except Exception:
-        # If any error occurs, just skip the device info
         pass
 
     return {
@@ -64,7 +56,6 @@ def _serialize_alert(alert):
     }
 
 def _require_admin_or_viewer():
-    """Allow both admin and viewer roles"""
     def role_checker(user: dict = Depends(get_current_user)):
         if user["role"] not in ["admin", "viewer"]:
             raise HTTPException(status_code=403, detail="Insufficient permissions")
@@ -82,17 +73,13 @@ def all_alerts(
 ):
     logger.info(f"Fetching alerts - page: {page}, page_size: {page_size}, after_id: {after_id}, after_timestamp: {after_timestamp}, user: {user.get('email', 'unknown')}")
 
-    # Use direct SQLAlchemy session queries
     session = next(get_db())
     try:
-        # Build base query with optional filters for efficient updates
         query = session.query(Alerts).options(joinedload(Alerts.device))
 
-        # Apply after_id filter for efficient updates
         if after_id is not None:
             query = query.filter(Alerts.id > after_id)
 
-        # Apply after_timestamp filter for efficient updates
         if after_timestamp is not None:
             try:
                 from datetime import datetime
@@ -101,7 +88,6 @@ def all_alerts(
             except Exception as e:
                 logger.warning(f"Invalid after_timestamp format: {after_timestamp}, error: {e}")
 
-        # Get total count (with filters applied)
         total = query.count()
         logger.info(f"[alerts API] Total alerts matching filters: {total}")
 
@@ -116,30 +102,20 @@ def all_alerts(
                 "message": "No alerts found"
             }
 
-        # Determine effective page size (use limit if provided)
         effective_page_size = limit if limit else page_size
 
-        # Build the ordered query
         query = query.order_by(Alerts.alert_time.desc(), Alerts.id.desc())
 
-        # FOR INITIAL LOAD (pagination mode): Use offset-based pagination
-        # FOR INCREMENTAL UPDATES (after_id mode): Return ALL matching alerts (no offset)
         returned_count = 0
         if after_id is not None:
-            # INCREMENTAL MODE: Get all alerts after the given ID (no pagination)
-            # This returns ONLY new alerts - essential for real-time updates!
             paginated_alerts = query.limit(effective_page_size).all()
             returned_count = len(paginated_alerts)
             logger.info(f"[alerts API] Incremental mode: Retrieved {returned_count} new alerts after ID {after_id}")
         elif after_timestamp is not None:
-            # TIMESTAMP-BASED MODE: Get all alerts after timestamp (no pagination)
             paginated_alerts = query.limit(effective_page_size).all()
             returned_count = len(paginated_alerts)
             logger.info(f"[alerts API] Timestamp mode: Retrieved {returned_count} alerts after {after_timestamp}")
         else:
-            # PAGINATION MODE: Standard page-based fetching
-            # Use the requested page_size, not capped at 50, for consistent behavior
-            # Cap only if explicitly larger than MAX_PAGE_SIZE
             realtime_count = min(effective_page_size, MAX_PAGE_SIZE)
             if effective_page_size > MAX_PAGE_SIZE:
                 logger.info(f"[alerts API] Large page size requested ({effective_page_size}), capped at {MAX_PAGE_SIZE}")
@@ -184,10 +160,8 @@ def all_alerts(
 
 @router.get("/stats")
 def get_alert_stats(user: dict = Depends(_require_admin_or_viewer())):
-    """Get alert statistics"""
     logger.info(f"Fetching alert stats, user: {user.get('email', 'unknown')}")
 
-    # Use direct SQLAlchemy session query
     session = next(get_db())
     try:
         alerts = session.query(Alerts).all()
@@ -233,13 +207,10 @@ def get_alert_stats(user: dict = Depends(_require_admin_or_viewer())):
     }
 
 
-# NOTE: /{device_hostname} route moved to the END to avoid route conflict with /stats
-# The /stats route must be registered before /{device_hostname} to work correctly
 @router.get("/{device_hostname}")
 def get_alerts(device_hostname: str, user: dict = Depends(_require_admin_or_viewer())):
     session = next(get_db())
     try:
-        # Get device first
         from nexora_db.operations.devices_ops import DeviceOperations
         device_ops = DeviceOperations()
         device = device_ops.get_device_by_hostname(device_hostname)
@@ -266,18 +237,12 @@ def get_realtime_alerts(
     page: int = Query(1, ge=1, description="Page number (1-based) for real-time updates"),
     user: dict = Depends(_require_admin_or_viewer())
 ):
-    """
-    Get alerts for real-time dashboard display.
-    Returns 10 alerts per page, sorted by newest first.
-    Designed to be polled every 1 second for live updates.
-    """
     logger.info(f"[Realtime Alerts] Fetching page {page}, user: {user.get('email', 'unknown')}")
 
-    page_size = REALTIME_PAGE_SIZE  # 10 alerts per page
+    page_size = REALTIME_PAGE_SIZE
 
     session = next(get_db())
     try:
-        # Get total count
         total = session.query(Alerts).count()
         logger.info(f"[Realtime Alerts] Total alerts in DB: {total}")
 
@@ -293,7 +258,6 @@ def get_realtime_alerts(
                 "message": "No alerts found"
             }
 
-        # Get paginated alerts sorted by alert_time DESC (newest first)
         query = session.query(Alerts).options(joinedload(Alerts.device)).order_by(Alerts.alert_time.desc(), Alerts.id.desc())
         offset = (page - 1) * page_size
         paginated_alerts = query.offset(offset).limit(page_size).all()
@@ -358,16 +322,10 @@ def get_latest_alerts(
     limit: int = Query(50, ge=1, le=100, description="Number of latest alerts to return"),
     user: dict = Depends(_require_admin_or_viewer())
 ):
-    """
-    Get the latest alerts for real-time display.
-    Returns the most recent alerts sorted by newest first.
-    Designed to be polled every 1 second for live updates.
-    """
     logger.info(f"[Latest Alerts] Fetching {limit} latest alerts, user: {user.get('email', 'unknown')}")
 
     session = next(get_db())
     try:
-        # Get latest alerts sorted by alert_time DESC (newest first)
         query = session.query(Alerts).options(
             joinedload(Alerts.device)
         ).order_by(

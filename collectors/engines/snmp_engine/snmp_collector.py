@@ -39,44 +39,32 @@ class DeviceMetrics:
 
 class SNMPMonitor:
 
-    # Default OIDs for Linux/Unix (UCD-SNMP-MIB)
-    # Using RAW OIDs that work on modern Linux systems
-    # These are counter values that need to be sampled over time to calculate percentage
-    OID_CPU_RAW_USER = "1.3.6.1.4.1.2021.11.9.0"    # ssCpuRawUser - counter
-    OID_CPU_RAW_SYSTEM = "1.3.6.1.4.1.2021.11.10.0"  # ssCpuRawSystem - counter
-    OID_CPU_RAW_IDLE = "1.3.6.1.4.1.2021.11.11.0"   # ssCpuRawIdle - counter
-    OID_CPU_RAW_NICE = "1.3.6.1.4.1.2021.11.12.0"   # ssCpuRawNice - counter
+    OID_CPU_RAW_USER = "1.3.6.1.4.1.2021.11.9.0"
+    OID_CPU_RAW_SYSTEM = "1.3.6.1.4.1.2021.11.10.0"
+    OID_CPU_RAW_IDLE = "1.3.6.1.4.1.2021.11.11.0"
+    OID_CPU_RAW_NICE = "1.3.6.1.4.1.2021.11.12.0"
 
-    # Legacy percentage OID (may not work on modern systems)
-    OID_CPU_IDLE_LEGACY = "1.3.6.1.4.1.2021.11.11.0"  # Deprecated - uses ssCpuIdle which is often unavailable
+    OID_CPU_IDLE_LEGACY = "1.3.6.1.4.1.2021.11.11.0"
 
-    # HOST-RESOURCES-MIB for system uptime/processes
-    OID_HR_SYSTEM_UPTIME = "1.3.6.1.2.1.25.1.1.0"  # hrSystemUptime
-    OID_HR_SYSTEM_PROCESSES = "1.3.6.1.2.1.25.1.6.0"  # hrSystemProcesses
+    OID_HR_SYSTEM_UPTIME = "1.3.6.1.2.1.25.1.1.0"
+    OID_HR_SYSTEM_PROCESSES = "1.3.6.1.2.1.25.1.6.0"
     OID_MEM_TOTAL = "1.3.6.1.4.1.2021.4.5.0"
     OID_MEM_AVAIL = "1.3.6.1.4.1.2021.4.6.0"
     OID_DISK_SIZE = "1.3.6.1.2.1.25.2.3.1.5"
     OID_DISK_USED = "1.3.6.1.2.1.25.2.3.1.6"
 
-    # Device-type specific CPU OIDs
-    # Cisco CPU OIDs (various models)
-    OID_CISCO_CPU = "1.3.6.1.4.1.9.2.1.58.0"  # Old Cisco IOS
-    OID_CISCO_CPU_2 = "1.3.6.1.4.1.9.9.109.1.1.1.1.7.1"  # Cisco IOS-XE
-    OID_CISCO_CPU_3 = "1.3.6.1.4.1.9.9.109.1.1.1.1.8.1"  # Cisco IOS-XE (5min)
+    OID_CISCO_CPU = "1.3.6.1.4.1.9.2.1.58.0"
+    OID_CISCO_CPU_2 = "1.3.6.1.4.1.9.9.109.1.1.1.1.7.1"
+    OID_CISCO_CPU_3 = "1.3.6.1.4.1.9.9.109.1.1.1.1.8.1"
 
-    # Juniper CPU OID
     OID_JUNIPER_CPU = "1.3.6.1.4.1.2636.3.1.13.1.5.1.6.0"
 
-    # HP/Aruba CPU OID
     OID_HP_CPU = "1.3.6.1.4.1.11.2.14.11.5.1.1.6.1.0"
 
-    # Dell CPU OID
     OID_DELL_CPU = "1.3.6.1.4.1.674.10895.5000.1.1.1.0"
 
-    # Mikrotik CPU OID
     OID_MIKROTIK_CPU = "1.3.6.1.4.1.14988.1.1.1.1.0"
 
-    # Network interface OIDs (standard)
     OID_IF_OPER = "1.3.6.1.2.1.2.2.1.8"
     OID_IF_IN_OCTETS = "1.3.6.1.2.1.2.2.1.10"
     OID_IF_OUT_OCTETS = "1.3.6.1.2.1.2.2.1.16"
@@ -89,8 +77,6 @@ class SNMPMonitor:
     OID_SYS_DESCR = "1.3.6.1.2.1.1.1.0"
     OID_SYS_OBJECT_ID = "1.3.6.1.2.1.1.2.0"
 
-    # CPU OID mapping for different vendors
-    # Linux uses RAW counters which require time-based sampling
     CPU_OID_MAP = {
         'cisco': [OID_CISCO_CPU, OID_CISCO_CPU_2, OID_CISCO_CPU_3],
         'juniper': [OID_JUNIPER_CPU],
@@ -110,7 +96,6 @@ class SNMPMonitor:
 
     def __init__(self, config: Optional["SNMPConfig"] = None):
         self.config = config or SNMPConfig()
-        # Suppress verbose SNMP transport logs
         self.logger = logging.getLogger('nexora.collector.snmp')
         self.logger.setLevel(logging.WARNING)  # Only log warnings and errors
 
@@ -229,34 +214,26 @@ class SNMPMonitor:
             device_type: Type of device (linux, cisco, juniper, hp, dell, mikrotik, etc.)
         """
 
-        # Normalize device type
         device_type = device_type.lower() if device_type else "linux"
 
-        # Get list of OIDs to try for this device type
         oids_to_try = self.CPU_OID_MAP.get(device_type, self.CPU_OID_MAP.get('default', [self.OID_CPU_RAW_USER]))
 
-        # For Linux/Unix systems, try to use RAW counters with time-based calculation
         if device_type in ('linux', 'server', 'router', 'unix'):
             cpu_usage = self._get_cpu_from_raw_counters(ip)
             if cpu_usage is not None:
                 return cpu_usage
 
-        # Fallback: try legacy OIDs or vendor-specific OIDs
-        # Also always try the legacy OID as fallback
         legacy_oids = [self.OID_CPU_IDLE_LEGACY]
         for oid in legacy_oids:
             if oid not in oids_to_try:
                 oids_to_try.append(oid)
 
-        # Try each OID until one works
         for oid in oids_to_try:
             cpu_idle, sec = self.snmp_get(ip, oid)
             self.logger.debug(f"CPU query for {ip} OID {oid}: {cpu_idle}")
 
-            # Check if we got valid data
             if sec and cpu_idle is not None and cpu_idle not in (b'', ''):
                 try:
-                    # Handle bytes or string values from SNMP
                     if isinstance(cpu_idle, (bytes, str)):
                         cpu_idle = float(cpu_idle)
                     elif isinstance(cpu_idle, int):
@@ -264,10 +241,7 @@ class SNMPMonitor:
                     else:
                         cpu_idle = float(cpu_idle)
 
-                    # Validate the value is in reasonable range (0-100)
                     if 0 <= cpu_idle <= 100:
-                        # CPU usage = 100 - CPU idle (assuming idle percentage)
-                        # For some devices, the OID might return usage directly
                         if cpu_idle > 0 and cpu_idle <= 100:
                             cpu_usage = 100.0 - cpu_idle
                             return cpu_usage
@@ -302,7 +276,6 @@ class SNMPMonitor:
             return int(value)
 
         try:
-            # First sample - get all CPU counters
             cpu_user_1, ok1 = self.snmp_get(ip, self.OID_CPU_RAW_USER)
             cpu_system_1, ok2 = self.snmp_get(ip, self.OID_CPU_RAW_SYSTEM)
             cpu_idle_1, ok3 = self.snmp_get(ip, self.OID_CPU_RAW_IDLE)
@@ -312,7 +285,6 @@ class SNMPMonitor:
                 self.logger.debug(f"RAW CPU counters not available for {ip}")
                 return None
 
-            # Convert to integers with proper handling
             try:
                 user_1 = parse_cpu_value(cpu_user_1)
                 system_1 = parse_cpu_value(cpu_system_1)
@@ -326,16 +298,13 @@ class SNMPMonitor:
                 self.logger.warning(f"Failed to parse RAW CPU counters: {e}")
                 return None
 
-            # Wait a short interval for counter delta calculation
             time.sleep(0.5)
 
-            # Second sample
             cpu_user_2, _ = self.snmp_get(ip, self.OID_CPU_RAW_USER)
             cpu_system_2, _ = self.snmp_get(ip, self.OID_CPU_RAW_SYSTEM)
             cpu_idle_2, _ = self.snmp_get(ip, self.OID_CPU_RAW_IDLE)
             cpu_nice_2, _ = self.snmp_get(ip, self.OID_CPU_RAW_NICE)
 
-            # Parse second sample values
             user_2 = parse_cpu_value(cpu_user_2)
             system_2 = parse_cpu_value(cpu_system_2)
             idle_2 = parse_cpu_value(cpu_idle_2)
@@ -345,24 +314,19 @@ class SNMPMonitor:
                 self.logger.warning(f"Failed to parse second RAW CPU sample")
                 return None
 
-            # Calculate deltas
             user_delta = user_2 - user_1
             system_delta = system_2 - system_1
             idle_delta = idle_2 - idle_1
             nice_delta = nice_2 - nice_1
 
-            # Total CPU time = user + system + idle + nice
             total_delta = user_delta + system_delta + idle_delta + nice_delta
 
             if total_delta <= 0:
                 self.logger.debug(f"Invalid CPU delta for {ip}: total={total_delta}")
                 return None
 
-            # CPU usage = 100 * (total - idle) / total
-            # Or equivalently: 100 * (user + system + nice) / total
             cpu_usage = 100.0 * (user_delta + system_delta + nice_delta) / total_delta
 
-            # Validate result is in reasonable range
             if 0 <= cpu_usage <= 100:
                 self.logger.debug(f"CPU usage for {ip}: {cpu_usage:.2f}% (from RAW counters)")
                 return round(cpu_usage, 2)
@@ -435,7 +399,6 @@ class SNMPMonitor:
                 if int(status) != self.IF_STATUS_UP:
                     continue
 
-                # Get byte counters for this interface
                 in_octets = self.snmp_get(ip, f"{self.OID_IF_IN_OCTETS}.{idx}")
                 out_octets = self.snmp_get(ip, f"{self.OID_IF_OUT_OCTETS}.{idx}")
 
@@ -445,7 +408,6 @@ class SNMPMonitor:
                 in_errors_val = self.snmp_get(ip, f"{self.OID_IF_IN_ERRORS}.{idx}")
                 out_errors_val = self.snmp_get(ip, f"{self.OID_IF_OUT_ERRORS}.{idx}")
 
-                # Skip loopback
                 if idx == self.LOOPBACK_INTERFACE_INDEX:
                     continue
 
@@ -477,10 +439,8 @@ class SNMPMonitor:
 
         self.logger.info(f"Collecting metrics for {hostname} ({ip})")
 
-        # First, check if device is reachable via ping
         latency, packet_loss = self.ping_device(ip)
 
-        # If device is down (100% packet loss), skip SNMP checks and return DOWN status
         if packet_loss >= 100.0:
             self.logger.warning(f"Device {hostname} ({ip}) is DOWN - skipping SNMP collection")
             return {
@@ -507,16 +467,12 @@ class SNMPMonitor:
                 "timestamp": int(time.time()),
             }
 
-        # Device is up, collect SNMP metrics - pass device_type for OID selection
         cpu = self._get_cpu_usage(ip, device_type)
         ram = self._get_memory_usage(ip)
         disk = self._get_disk_usage(ip)
 
         interface_stats = self._get_interface_stats(ip)
 
-        # Determine status based on packet loss and latency
-        # UP: packet_loss < 100% and latency is available
-        # DOWN: packet_loss >= 100% or no latency
         if packet_loss >= 100.0 or latency is None:
             status = "down"
         else:
@@ -548,7 +504,6 @@ class SNMPMonitor:
 
         return result
 
-    # Alias for backward compatibility with scheduler
     def collect_metrics_as_dataclass(self, hostname: str, device_type: str, ip: str, mac_placeholder: str = "00:00:00:00:00:00") -> Dict[str, Any]:
         """Alias for collect_device_metrics - kept for backward compatibility."""
         return self.collect_device_metrics(hostname, device_type, ip, mac_placeholder)

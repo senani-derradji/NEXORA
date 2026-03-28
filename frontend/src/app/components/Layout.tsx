@@ -6,7 +6,6 @@ import {
   Menu, X, ChevronRight, Activity, Wifi, Moon, Sun, AlertCircle
 } from 'lucide-react';
 
-// Dynamic NAV_ITEMS based on user role
 export function getNavItems(userRole: string | undefined) {
   const items = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -16,7 +15,6 @@ export function getNavItems(userRole: string | undefined) {
     { path: '/metrics', label: 'Metrics', icon: BarChart2 },
   ];
 
-  // Add admin for admin users only
   if (userRole === 'admin') {
     items.push({ path: '/admin', label: 'Admin', icon: ShieldCheck });
   }

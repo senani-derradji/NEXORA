@@ -7,13 +7,11 @@ from config import init
 from time_series_readers.influx_reader import InfluxReader, get_influx_reader
 from utils.logger import setup_logger
 
-# Setup logger
 logger = setup_logger('backend.metrics', level=20)
 
 init(url_env="DATABASE_URL")
 router = APIRouter()
 
-# Duration mappings
 DURATION_MAP = {
     '1m': '1m',
     '5m': '5m',
@@ -25,7 +23,6 @@ DURATION_MAP = {
     '7d': '7d'
 }
 
-# Aggregation intervals based on duration
 AGGREGATION_MAP = {
     '1m': '5s',
     '5m': '10s',
@@ -39,7 +36,6 @@ AGGREGATION_MAP = {
 
 
 def _require_admin_or_viewer():
-    """Allow both admin and viewer roles"""
     def role_checker(user: dict = Depends(get_current_user)):
         if user["role"] not in ["admin", "viewer"]:
             raise HTTPException(status_code=403, detail="Insufficient permissions")
@@ -47,14 +43,11 @@ def _require_admin_or_viewer():
     return role_checker
 
 
-# Helper to get reader instance
 def _get_reader() -> InfluxReader:
-    """Get InfluxReader instance"""
     return get_influx_reader()
 
 
 def _get_aggregation_window(duration: str) -> str:
-    """Get aggregation window based on duration"""
     return AGGREGATION_MAP.get(duration, '1m')
 
 
@@ -63,7 +56,6 @@ def _build_flux_query(
     duration: str = '1h',
     device_filter: Optional[str] = None
 ) -> str:
-    """Build a Flux query for a specific metric field using InfluxReader"""
     reader = _get_reader()
     devices = [device_filter] if device_filter else None
     window = _get_aggregation_window(duration)
@@ -77,57 +69,41 @@ def _build_flux_query(
     )
 
 
-# ============================================
-# FLUX QUERIES FOR EACH METRIC
-# ============================================
 
-# Field name mapping - core writes: cpu_usage, ram_usage, disk_usage, in_bytes, out_bytes, latency, packet_loss_percent
 
 def get_cpu_query(duration: str = '1h', device: Optional[str] = None) -> str:
-    """Flux query for CPU usage - field name is 'cpu_usage'"""
     return _build_flux_query('cpu_usage', duration, device)
 
 
 def get_ram_query(duration: str = '1h', device: Optional[str] = None) -> str:
-    """Flux query for RAM usage - field name is 'ram_usage'"""
     return _build_flux_query('ram_usage', duration, device)
 
 
 def get_disk_query(duration: str = '1h', device: Optional[str] = None) -> str:
-    """Flux query for disk usage - field name is 'disk_usage'"""
     return _build_flux_query('disk_usage', duration, device)
 
 
 def get_network_in_query(duration: str = '1h', device: Optional[str] = None) -> str:
-    """Flux query for network inbound bytes"""
     return _build_flux_query('in_bytes', duration, device)
 
 
 def get_network_out_query(duration: str = '1h', device: Optional[str] = None) -> str:
-    """Flux query for network outbound bytes"""
     return _build_flux_query('out_bytes', duration, device)
 
 
 def get_latency_query(duration: str = '1h', device: Optional[str] = None) -> str:
-    """Flux query for latency"""
     return _build_flux_query('latency', duration, device)
 
 
 def get_packet_loss_query(duration: str = '1h', device: Optional[str] = None) -> str:
-    """Flux query for packet loss - field name is 'packet_loss_percent'"""
     return _build_flux_query('packet_loss_percent', duration, device)
 
 
-# ============================================
-# HELPER FUNCTIONS
-# ============================================
 
 def _organize_by_device(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Organize flat data into device-structured format"""
     device_map: Dict[str, List[Dict[str, Any]]] = {}
 
     for item in data:
-        # InfluxReader returns 'device' key for device_name
         device_name = item.get('device') or item.get('device_name', 'unknown')
         if device_name not in device_map:
             device_map[device_name] = []
@@ -137,7 +113,6 @@ def _organize_by_device(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             "value": item.get('value')
         })
 
-    # Convert to list format
     result = []
     for device_name, points in device_map.items():
         result.append({
@@ -152,7 +127,6 @@ def _merge_network_data(
     in_data: List[Dict[str, Any]],
     out_data: List[Dict[str, Any]]
 ) -> List[Dict[str, Any]]:
-    """Merge inbound and outbound network data by timestamp"""
     merged: Dict[str, Dict[str, Any]] = {}
 
     for point in in_data:
@@ -169,7 +143,6 @@ def _merge_network_data(
                 merged[ts] = {"timestamp": point.get('timestamp')}
             merged[ts]["value_out"] = point.get('value') or 0
 
-    # Ensure all points have both value_in and value_out (default to 0 if missing)
     for ts, merged_point in merged.items():
         if "value_in" not in merged_point:
             merged_point["value_in"] = 0
@@ -184,7 +157,6 @@ def _combine_network_data(
     in_by_device: Dict[str, List],
     out_by_device: Dict[str, List]
 ) -> List[Dict[str, Any]]:
-    """Combine network data for all devices"""
     all_devices = set(in_by_device.keys()) | set(out_by_device.keys())
     result = []
 
@@ -200,9 +172,6 @@ def _combine_network_data(
     return result
 
 
-# ============================================
-# API ENDPOINTS
-# ============================================
 
 @router.get("/cpu")
 def get_cpu_metrics(
@@ -210,7 +179,6 @@ def get_cpu_metrics(
     device: Optional[str] = None,
     user: dict = Depends(_require_admin_or_viewer())
 ):
-    """Get CPU usage metrics for all devices"""
     reader = _get_reader()
     query = get_cpu_query(duration, device)
     data = reader.query(query)
@@ -232,7 +200,6 @@ def get_ram_metrics(
     device: Optional[str] = None,
     user: dict = Depends(_require_admin_or_viewer())
 ):
-    """Get RAM usage metrics for all devices"""
     reader = _get_reader()
     query = get_ram_query(duration, device)
     data = reader.query(query)
@@ -254,7 +221,6 @@ def get_disk_metrics(
     device: Optional[str] = None,
     user: dict = Depends(_require_admin_or_viewer())
 ):
-    """Get disk usage metrics for all devices"""
     reader = _get_reader()
     query = get_disk_query(duration, device)
     data = reader.query(query)
@@ -276,10 +242,8 @@ def get_network_metrics(
     device: Optional[str] = None,
     user: dict = Depends(_require_admin_or_viewer())
 ):
-    """Get network metrics (in/out bytes) for all devices"""
     reader = _get_reader()
 
-    # Query both inbound and outbound
     in_query = get_network_in_query(duration, device)
     out_query = get_network_out_query(duration, device)
 
@@ -289,15 +253,12 @@ def get_network_metrics(
     print(f"[API] Network in result: {len(in_data)} rows", flush=True)
     print(f"[API] Network out result: {len(out_data)} rows", flush=True)
 
-    # Organize by device
     in_by_device_list = _organize_by_device(in_data)
     out_by_device_list = _organize_by_device(out_data)
 
-    # Convert list to dict for easier access
     in_by_device = {item['device']: item['data'] for item in in_by_device_list}
     out_by_device = {item['device']: item['data'] for item in out_by_device_list}
 
-    # Combine into network structure
     all_devices = set(in_by_device.keys()) | set(out_by_device.keys())
     devices_list = []
 

@@ -8,7 +8,6 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 from core.utils.logger import setup_logger
 
-# Try to import broadcast helper (may not be available in all contexts)
 try:
     import nest_asyncio
     nest_asyncio.apply()
@@ -23,7 +22,6 @@ except ImportError:
     except ImportError:
         broadcast_alert_sync = None
 
-# Setup logger
 logger = setup_logger('core.alert_engine', level=20)
 
 
@@ -31,30 +29,19 @@ class AlertEngine:
     def __init__(self):
         self.alertOPS = AlertOperations()
         self.deviceOPS = DeviceOperations()
-
-        # Deduplication: don't create duplicate alerts within this time window (in minutes)
         self.dedup_window_minutes = 5
 
-        # Rate limiting: track alert counts per device in memory to prevent flooding
-        self.alert_counts = {}  # {device_id: {alert_type: count}}
-        self.rate_limit_window_seconds = 300  # 5 minutes
-        self.max_alerts_per_type = 3  # Max alerts per type in window before suppression
+        self.alert_counts = {}
+        self.rate_limit_window_seconds = 300
+        self.max_alerts_per_type = 3
 
-        # Traffic thresholds in Mbps (after proper conversion from bytes)
-        # Lowered thresholds for easier alert triggering
-        self.traffic_warning_mbps = 1    # 1 Mbps warning threshold
-        self.traffic_critical_mbps = 10  # 10 Mbps critical threshold
+        self.traffic_warning_mbps = 1
+        self.traffic_critical_mbps = 10
 
         logger.info("AlertEngine initialized with dedup window: 5 minutes, rate limit: 3 alerts/5min")
 
     def _should_create_alert(self, device_id: int, alert_message: str) -> bool:
-        """
-        Database-level deduplication: Check if a similar alert exists
-        within the deduplication window.
-        Returns True if no similar alert found, False otherwise.
-        """
         try:
-            # Use AlertOperations for deduplication check
             existing = self.alertOPS.get_recent_alert(
                 device_id=device_id,
                 alert_message=alert_message,
@@ -69,42 +56,7 @@ class AlertEngine:
 
         except Exception as e:
             logger.error(f"[ALERT DEDUP][ERROR] {e}")
-            # On error, allow alert creation to avoid blocking alerts
             return True
-
-    def _check_rate_limit(self, device_id: int, alert_type: str) -> bool:
-        """
-        Memory-level rate limiting: Check if we've already sent too many
-        alerts of this type within the rate limit window.
-        Returns True if under limit (should alert), False if over limit (suppress).
-        """
-        import time
-        current_time = time.time()
-
-        if device_id not in self.alert_counts:
-            self.alert_counts[device_id] = {}
-
-        if alert_type not in self.alert_counts[device_id]:
-            self.alert_counts[device_id][alert_type] = {
-                'count': 0,
-                'window_start': current_time
-            }
-
-        # Check if window has expired, reset if so
-        if current_time - self.alert_counts[device_id][alert_type]['window_start'] > self.rate_limit_window_seconds:
-            self.alert_counts[device_id][alert_type] = {
-                'count': 0,
-                'window_start': current_time
-            }
-
-        # Check if we've hit the limit
-        if self.alert_counts[device_id][alert_type]['count'] >= self.max_alerts_per_type:
-            logger.info(f"[RATE LIMIT] Suppressed alert {alert_type} for device {device_id} (limit: {self.max_alerts_per_type}/{self.rate_limit_window_seconds}s)")
-            return False
-
-        # Increment counter
-        self.alert_counts[device_id][alert_type]['count'] += 1
-        return True
 
     def _send_telegram(self, message: str, level: str = "WARNING"):
         import requests
@@ -231,9 +183,6 @@ class AlertEngine:
         if in_bytes is None:
             return False
 
-        # Convert bytes/sec to Mbps
-        # Formula: Mbps = (bytes_per_second * 8) / 1,000,000
-        # Or equivalently: Mbps = bytes_per_second / 125,000
         try:
             in_mbps = (float(in_bytes) * 8) / 1_000_000
         except (ValueError, TypeError):
@@ -269,8 +218,6 @@ class AlertEngine:
         if out_bytes is None:
             return False
 
-        # Convert bytes/sec to Mbps
-        # Formula: Mbps = (bytes_per_second * 8) / 1,000,000
         try:
             out_mbps = (float(out_bytes) * 8) / 1_000_000
         except (ValueError, TypeError):
@@ -373,10 +320,8 @@ class AlertEngine:
             return {"invalid_input": True}
 
         if not device_id:
-            # Use DeviceOperations to get device by hostname
             device = self.deviceOPS.get_device_by_hostname(hostname)
             if not device:
-                # Try to get device by IP address as fallback
                 logger.warning(f"[ALERT ENGINE] Device not found by hostname: {hostname}, attempting to find by other means")
                 # Return a flag indicating device needs to be created first
                 return {"device_missing": True, "hostname": hostname}
@@ -392,7 +337,6 @@ class AlertEngine:
         status = status.lower()
 
         if status == "down":
-            # For down alerts, use device hostname as alert type
             msg = f"Device {hostname} is DOWN"
             if self._should_create_alert(dev_id, msg):
                 try:
@@ -535,13 +479,11 @@ class AlertEngine:
                         logger.error(f"❌ FAILED TO CREATE ALERT: {msg}, error: {e}")
 
             if alerts["in_bytes"] or alerts["out_bytes"]:
-                # Calculate Mbps for display (proper unit conversion: bytes -> bits -> Mbps)
                 in_mbps = (float(in_bytes) * 8) / 1_000_000 if in_bytes else 0
                 out_mbps = (float(out_bytes) * 8) / 1_000_000 if out_bytes else 0
                 msg = f"High traffic: in={in_mbps:.2f} Mbps / out={out_mbps:.2f} Mbps"
 
-                # Use both deduplication and rate limiting
-                if self._should_create_alert(dev_id, msg) and self._check_rate_limit(dev_id, 'traffic'):
+                if self._should_create_alert(dev_id, msg):
                     try:
                         self.alertOPS.create_alert(
                             alert_level="mid",

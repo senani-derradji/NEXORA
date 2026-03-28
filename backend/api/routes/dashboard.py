@@ -9,7 +9,6 @@ import os
 import json
 from time_series_readers.influx_reader import InfluxReader, get_influx_reader
 
-# Setup logger
 logger = setup_logger('backend.dashboard', level=20)
 
 init(url_env="DATABASE_URL")
@@ -19,7 +18,6 @@ alert_ops = AlertOperations()
 router = APIRouter()
 
 def _require_admin_or_viewer():
-    """Allow both admin and viewer roles"""
     def role_checker(user: dict = Depends(get_current_user)):
         if user["role"] not in ["admin", "viewer"]:
             raise HTTPException(status_code=403, detail="Insufficient permissions")
@@ -27,32 +25,23 @@ def _require_admin_or_viewer():
     return role_checker
 
 def _is_device_online(device):
-    """Check if device is online based on status and last_seen"""
     now = datetime.now(timezone.utc)
 
-    # Check the status field (up, down)
     device_status = str(device.status).upper() if device.status else ""
 
-    # Device is DOWN if status explicitly says so
     if device_status == "DOWN":
         return False
 
-    # Device is UP if status says so
     if device_status == "UP":
-        # Also verify last_seen is recent (within 30 seconds)
         if device.last_seen:
-            # Handle timezone-aware vs naive datetime comparison
             last_seen = device.last_seen
             if last_seen.tzinfo is None:
-                # Naive datetime from DB - assume UTC
                 last_seen = last_seen.replace(tzinfo=timezone.utc)
 
             if (now - last_seen).total_seconds() < 30:
                 return True
-        # If no recent last_seen but status is UP, still consider online
         return True
 
-    # Fallback: check last_seen
     if device.last_seen:
         last_seen = device.last_seen
         if last_seen.tzinfo is None:
@@ -62,17 +51,14 @@ def _is_device_online(device):
 
 
 def _get_influx_metrics():
-    """Try to get metrics from InfluxDB using InfluxReader, return default values if unavailable"""
     try:
         reader = get_influx_reader()
 
-        # Use InfluxReader's get_latest_values method to get all metrics
         fields = ['cpu_usage', 'ram_usage', 'disk_usage', 'latency']
         data = reader.get_latest_values(fields)
 
         print(f"[DASHBOARD] InfluxDB latest values: {len(data)} rows", flush=True)
 
-        # Organize data by device - SKIP zero values as they're likely placeholders
         devices_data = {}
         for item in data:
             device_name = item.get('device')
@@ -85,7 +71,6 @@ def _get_influx_metrics():
             field = item.get('field')
             value = item.get('value')
 
-            # Skip zero values - they're placeholder data
             if field and value is not None and value != 0.0:
                 try:
                     devices_data[device_name][field] = float(value)
@@ -94,7 +79,6 @@ def _get_influx_metrics():
 
         print(f"[DASHBOARD] Devices data (non-zero): {devices_data}", flush=True)
 
-        # Calculate averages - if no non-zero data, try using whatever we have
         count = len(devices_data)
         if count > 0:
             total_cpu = sum(d.get('cpu_usage', 0) or 0 for d in devices_data.values())
@@ -216,13 +200,11 @@ def get_device_metrics(user: dict = Depends(_require_admin_or_viewer())):
     try:
         reader = get_influx_reader()
 
-        # Get latest values for all devices
         fields = ['cpu_usage', 'ram_usage', 'disk_usage', 'latency', 'status']
         data = reader.get_latest_values(fields)
 
         print(f"[DASHBOARD] Device metrics from InfluxDB: {len(data)} rows", flush=True)
 
-        # Organize data by device
         for item in data:
             device_name = item.get('device')
             if not device_name:
@@ -261,7 +243,6 @@ def get_device_metrics(user: dict = Depends(_require_admin_or_viewer())):
     except Exception as e:
         print(f"[DASHBOARD] Error querying InfluxDB: {e}", flush=True)
 
-    # Build response
     device_list = []
     for device in devices:
         device_name = device.hostname
@@ -273,7 +254,6 @@ def get_device_metrics(user: dict = Depends(_require_admin_or_viewer())):
             'status': 'unknown'
         })
 
-        # Override with PostgreSQL status if available
         db_status = 'UP' if _is_device_online(device) else 'DOWN'
 
         device_list.append({
@@ -297,12 +277,10 @@ def get_device_metrics(user: dict = Depends(_require_admin_or_viewer())):
 
 @router.get("/topology")
 def get_topology(user: dict = Depends(_require_admin_or_viewer())):
-    """Get network topology with devices"""
 
     # Get devices from PostgreSQL
     devices = device_ops.get_all_devices()
 
-    # Build device nodes from database
     device_nodes = []
     for device in devices:
         is_online = _is_device_online(device)

@@ -1,15 +1,11 @@
 #!/bin/bash
 
-# NEXORA Pre-Start Device Check Script
-# This script validates devices before starting the collector
-# Uses existing SNMP engine with async SNMP queries
 
 set -e
 
 CONFIG_FILE="/collectors/config/devices.yml"
 LOG_FILE="/collectors/pre_start_check.log"
 
-# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -31,7 +27,6 @@ log_error() {
     log "${RED}[ERROR]${NC} $1"
 }
 
-# Check if devices.yml exists
 check_file_exists() {
     log_info "Checking if $CONFIG_FILE exists..."
     if [ ! -f "$CONFIG_FILE" ]; then
@@ -41,17 +36,14 @@ check_file_exists() {
     log_info "File $CONFIG_FILE exists."
 }
 
-# Validate YAML format
 validate_yaml_format() {
     log_info "Validating YAML format..."
 
-    # DEBUG: Show first few lines of the file
     log_info "DEBUG: First 10 lines of $CONFIG_FILE:"
     head -n 10 "$CONFIG_FILE" | while read -r line; do
         log_info "DEBUG LINE: '$line'"
     done
 
-    # DEBUG: Check what patterns match
     log_info "DEBUG: Checking for 'ip:' pattern..."
     if grep -qE "^[[:space:]]*- ip:" "$CONFIG_FILE"; then
         log_info "DEBUG: Found '- ip:' pattern"
@@ -65,7 +57,6 @@ validate_yaml_format() {
         log_info "DEBUG: Did NOT find 'ip_address:' pattern"
     fi
 
-    # DEBUG: Show all lines containing 'ip'
     log_info "DEBUG: Lines containing 'ip':"
     grep -E "ip" "$CONFIG_FILE" | while read -r line; do
         log_info "DEBUG: '$line'"
@@ -76,7 +67,6 @@ validate_yaml_format() {
         exit 1
     fi
 
-    # Fixed: Use parentheses to ensure correct operator precedence
     if (! grep -qE "^[[:space:]]*- ip:" "$CONFIG_FILE") && (! grep -qE "ip_address:" "$CONFIG_FILE"); then
         log_error "Invalid YAML format: No devices with ip found"
         exit 1
@@ -85,7 +75,6 @@ validate_yaml_format() {
     log_info "YAML format is valid."
 }
 
-# Process all devices using Python with async SNMP
 process_devices() {
     log_info "Processing devices from $CONFIG_FILE..."
 
@@ -99,7 +88,6 @@ import asyncio
 import logging
 import os
 
-# Add paths to import existing SNMP utils
 sys.path.insert(0, '/collectors')
 sys.path.insert(0, '/collectors/engines')
 sys.path.insert(0, '/collectors/engines/snmp_engine')
@@ -110,7 +98,6 @@ logger = logging.getLogger(__name__)
 CONFIG_FILE = "/collectors/config/devices.yml"
 TEMP_FILE = "/tmp/devices_updated.yml"
 
-# Import existing SNMP engine utilities
 try:
     from engines.snmp_engine.utils.detect_type import detect_device_type
     from engines.snmp_engine.utils.detect_vendor import detect_vendor
@@ -121,7 +108,6 @@ except ImportError as e:
     logger.warning(f"Could not import SNMP utils: {e}")
     SNMP_UTILS_AVAILABLE = False
 
-# OIDs
 OID_SYS_OBJECT_ID = "1.3.6.1.2.1.1.2.0"
 OID_SYS_NAME = "1.3.6.1.2.1.1.5.0"
 OID_SYS_DESCR = "1.3.6.1.2.1.1.1.0"
@@ -136,7 +122,6 @@ def log_error(msg):
     print(f"[ERROR] {msg}")
 
 async def get_device_info_async(ip, community="public", timeout=5):
-    """Get device info via SNMP using async calls"""
     info = {
         'hostname': '',
         'device_type': 'unknown',
@@ -152,7 +137,6 @@ async def get_device_info_async(ip, community="public", timeout=5):
         config = SNMPConfig(community=community, timeout=timeout)
         monitor = SNMPMonitor(config=config)
 
-        # Use asyncio.to_thread for SNMP queries
         sys_name, name_ok = await asyncio.to_thread(
             monitor.snmp_get, ip, OID_SYS_NAME
         )
@@ -161,30 +145,25 @@ async def get_device_info_async(ip, community="public", timeout=5):
             info['snmp_available'] = True
             info['hostname'] = str(sys_name)
 
-        # Get sysObjectID for device type and vendor
         sys_object_id, oid_ok = await asyncio.to_thread(
             monitor.snmp_get, ip, OID_SYS_OBJECT_ID
         )
 
         if oid_ok and sys_object_id:
-            # Convert to tuple format expected by detect_type/detect_vendor
             oid_tuple = (str(sys_object_id),)
 
-            # Get device type
             if SNMP_UTILS_AVAILABLE:
                 try:
                     info['device_type'] = detect_device_type(oid_tuple)
                 except Exception as e:
                     logger.warning(f"detect_type error: {e}")
 
-            # Get vendor
             if SNMP_UTILS_AVAILABLE:
                 try:
                     info['vendor'] = detect_vendor(oid_tuple)
                 except Exception as e:
                     logger.warning(f"detect_vendor error: {e}")
 
-        # Get sysDescr
         sys_descr, desc_ok = await asyncio.to_thread(
             monitor.snmp_get, ip, OID_SYS_DESCR
         )
@@ -198,7 +177,6 @@ async def get_device_info_async(ip, community="public", timeout=5):
     return info
 
 def ping_device(ip, timeout=30, interval=5):
-    """Ping a device and return True if reachable"""
     log_info(f"Pinging {ip} (timeout: {timeout}s)...")
     elapsed = 0
     while elapsed < timeout:
@@ -219,7 +197,6 @@ def ping_device(ip, timeout=30, interval=5):
     return False
 
 def get_mac_address(ip):
-    """Get MAC address from ARP cache"""
     mac = ""
     try:
         subprocess.run(["ping", "-c", "1", "-W", "1", ip],
@@ -240,7 +217,6 @@ def get_mac_address(ip):
     return mac
 
 def detect_device_type_from_hostname(hostname):
-    """Fallback: detect device type from hostname patterns"""
     hostname_lower = hostname.lower() if hostname else ""
 
     if any(x in hostname_lower for x in ['win', 'windows', 'desktop', 'pc']):
@@ -256,8 +232,6 @@ def detect_device_type_from_hostname(hostname):
     return "unknown"
 
 async def process_single_device(device):
-    """Process a single device asynchronously"""
-    # DIAGNOSTIC: Log input device data to understand what fields are provided
     log_info(f"DEBUG INPUT: device = {device}")
 
     ip = device.get('ip') or device.get('ip_address')
@@ -267,7 +241,6 @@ async def process_single_device(device):
 
     log_info(f"DEBUG: Found IP = {ip}")
 
-    # DIAGNOSTIC: Check what optional fields are provided in input
     input_hostname = device.get('hostname')
     input_mac = device.get('mac') or device.get('mac_address')
     input_device_type = device.get('device_type')
@@ -275,24 +248,18 @@ async def process_single_device(device):
 
     log_info(f"DEBUG INPUT FIELDS: hostname='{input_hostname}', mac='{input_mac}', device_type='{input_device_type}', interval={input_interval}")
 
-    # Ping first
     if not ping_device(ip, timeout=30, interval=5):
         return ip, None, "not_reachable"
 
-    # Get MAC - FIRST check if provided in input, then try ARP
     mac = input_mac if input_mac else get_mac_address(ip)
     log_info(f"DEBUG MAC: input_mac='{input_mac}', arp_mac='{get_mac_address(ip)}', final_mac='{mac}'")
 
-    # Get SNMP info asynchronously
     snmp_info = await get_device_info_async(ip, community="public", timeout=5)
 
-    # DIAGNOSTIC: Log SNMP-detected values
     log_info(f"DEBUG SNMP: snmp_info = {snmp_info}")
 
-    # Use input hostname if provided, otherwise use SNMP/reverse DNS/generated
     hostname = snmp_info.get('hostname', '')
 
-    # If no hostname from SNMP, try reverse DNS
     if not hostname:
         try:
             result = subprocess.run(["host", ip], capture_output=True, text=True, timeout=5)
@@ -301,40 +268,32 @@ async def process_single_device(device):
         except Exception:
             pass
 
-    # If still no hostname, use input hostname or generate default
     if not hostname:
         hostname = input_hostname if input_hostname else f"device_{ip.replace('.', '_')}"
 
     log_info(f"DEBUG HOSTNAME: snmp_hostname='{snmp_info.get('hostname', '')}', input_hostname='{input_hostname}', final_hostname='{hostname}'")
 
-    # Use input device_type if provided, otherwise use SNMP/hostname detection
     device_type = snmp_info.get('device_type', 'unknown')
     vendor = snmp_info.get('vendor', 'unknown')
 
-    # Check if SNMP available
     snmp_available = snmp_info.get('snmp_available', False)
 
-    # If device_type unknown or not provided in input, use hostname detection
     if device_type == 'unknown' or not input_device_type:
         detected_type = detect_device_type_from_hostname(hostname)
         device_type = input_device_type if input_device_type else detected_type
 
     log_info(f"DEBUG DEVICE_TYPE: snmp_type='{snmp_info.get('device_type', 'unknown')}', input_type='{input_device_type}', detected='{detect_device_type_from_hostname(hostname)}', final='{device_type}'")
 
-    # Combine hostname with vendor: {hostname}_{vendor}
     if vendor and vendor != 'unknown':
         base_hostname = hostname.split('.')[0]
         hostname = f"{base_hostname}_{vendor}"
 
-    # Truncate hostname to 20 chars
     hostname = hostname.split('.')[0]
     if len(hostname) > 20:
         hostname = hostname[:20]
 
-    # Truncate device_type
     device_type = str(device_type)[:20]
 
-    # Get interval - use input if provided, otherwise default
     interval = input_interval if input_interval else device.get('interval', 15)
 
     log_info(f"DEBUG INTERVAL: input_interval={input_interval}, default=15, final={interval}")
@@ -374,7 +333,6 @@ async def main():
 
     log_info(f"Processing {len(devices)} devices...")
 
-    # Process devices asynchronously
     tasks = [process_single_device(device) for device in devices]
     results = await asyncio.gather(*tasks)
 
@@ -384,7 +342,6 @@ async def main():
         elif result[1]:  # failed ip
             failed_devices.append(result[1])
 
-    # Create updated data
     updated_data = {'devices': working_devices}
 
     with open(TEMP_FILE, 'w') as f:
@@ -418,7 +375,6 @@ PYTHON_SCRIPT
     log_info "Device processing completed successfully"
 }
 
-# Main execution
 main() {
     log_info "========================================="
     log_info "NEXORA Pre-Start Device Check"
@@ -433,5 +389,4 @@ main() {
     log_info "========================================="
 }
 
-# Run main
 main "$@"

@@ -16,7 +16,6 @@ class PasswordChange(BaseModel):
 
 @router.get("/me")
 def read_me(user: dict = Depends(get_current_user)):
-    """Get current user info"""
     return {
         "id": user.get("id", 0),
         "email": user.get("email"),
@@ -35,18 +34,14 @@ def update_me(user_data: UserUpdate, user: dict = Depends(get_current_user)):
 
 @router.post("/change-password")
 def change_password(password_data: PasswordChange, user: dict = Depends(get_current_user)):
-    """Change user password"""
     user = user_ops.get_user_by_email(user.get("email"))
 
 
 
     return {"message": "Password changed successfully"}
 
-# @router.get("/admin-only")
-# def admin_only_route(user: dict = Depends(require_role("admin"))):
-#     return {"msg": f"Hello {user['email']}! You are admin."}
 
-# Admin-only user management endpoints
+
 @router.get("/")
 def list_users(user: dict = Depends(require_role("admin"))):
 
@@ -57,7 +52,6 @@ def list_users(user: dict = Depends(require_role("admin"))):
 
 @router.delete("/{user_id}")
 def delete_user(user_id: int, user: dict = Depends(require_role("admin"))):
-    """Delete a user - admin only"""
     user_deleted_status = user_ops.delete_user(user_id)
     if user_deleted_status is None:
         raise HTTPException(status_code=404, detail="User not found")

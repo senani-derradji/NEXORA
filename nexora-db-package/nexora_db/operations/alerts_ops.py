@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import joinedload
 import logging
 
-# Setup logger
 logger = logging.getLogger('nexora_db.alerts')
 logger.setLevel(logging.INFO)
 
@@ -123,13 +122,8 @@ class AlertOperations:
 
 
     def get_paginated_alerts(self, page: int = 1, page_size: int = 100):
-        """
-        Get paginated alerts sorted by alert_time DESC, then by id DESC (newest first).
-        Returns dict with alerts list, total count, page info.
-        """
         session = next(get_db())
         try:
-            # Get total count
             total = session.query(Alerts).count()
             logger.info(f"[get_paginated_alerts] Total alerts in DB: {total}, page={page}, page_size={page_size}")
 
@@ -142,11 +136,7 @@ class AlertOperations:
                     "total_pages": 0
                 }
 
-            # Get paginated alerts sorted by alert_time DESC (newest first)
-            # Use id for secondary sort to handle potential null times
-            # Use joinedload to eagerly load the device relationship
             from sqlalchemy import desc
-            # Handle null alert_time by using coalesce
             query = session.query(Alerts).options(joinedload(Alerts.device)).order_by(desc(Alerts.alert_time), Alerts.id.desc())
             offset = (page - 1) * page_size
             paginated_alerts = query.offset(offset).limit(page_size).all()
@@ -177,11 +167,6 @@ class AlertOperations:
 
 
     def get_recent_alert(self, device_id: int, alert_message: str, minutes: int = 5):
-        """
-        Check if a similar alert exists for a device within the specified time window.
-        Used for deduplication.
-        Returns the existing alert if found, None otherwise.
-        """
         session = next(get_db())
         try:
             from datetime import timedelta, timezone
@@ -196,7 +181,6 @@ class AlertOperations:
             return existing
 
         except Exception as e:
-            # On error, return None to allow alert creation
             print(f"[ALERT OPS][ERROR] {e}")
             return None
 

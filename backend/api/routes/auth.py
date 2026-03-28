@@ -35,7 +35,6 @@ def login(form_data = Depends(OAuth2PasswordRequestForm), db: Session = Depends(
 
 @router.get("/check-auth")
 def check_auth(current_user: dict = Depends(get_current_user)):
-    """Check if user is authenticated"""
     return {
         "authenticated": True,
         "username": current_user.get("email"),
