@@ -63,6 +63,25 @@ $frontendEnvContent = @"
 VITE_API_BASE_URL=http://backend:8000
 "@
 
+$dockerEnvContent = @"
+# Postgres
+POSTGRES_USER=nexorauser
+POSTGRES_PASSWORD=nexorapass
+POSTGRES_DB=nexoradb
+
+# Network
+NETWORK_NAME=my_shared_network
+SUBNET=172.18.0.0/24
+GATEWAY=172.18.0.1
+"@
+
+$SecurityEnvContent = @"
+SECRET_KEY=secret_test
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=1440
+"@
+
+
 $envFiles = @{
     ".env" = $envContent
     "backend/.env" = $backendEnvContent
@@ -70,6 +89,8 @@ $envFiles = @{
     "core/time_series/config/.env" = $coreTimeSeriesEnvContent
     "collectors/config/db_config/.env" = $collectorsEnvContent
     "frontend/.env" = $frontendEnvContent
+    "docker/.env" = $dockerEnvContent
+    "security/.env" = $SecurityEnvContent
 }
 
 foreach ($file in $envFiles.Keys) {

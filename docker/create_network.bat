@@ -1,8 +1,10 @@
 @echo off
 
-set NETWORK_NAME=my_shared_network
-set SUBNET=172.18.0.0/24
-set GATEWAY=172.18.0.1
+set "SCRIPT_DIR=%~dp0"
+
+for /f "usebackq tokens=1,* delims==" %%A in (`findstr /b /v "#" "%SCRIPT_DIR%.env"`) do (
+    set "%%A=%%B"
+)
 
 docker network inspect %NETWORK_NAME% >nul 2>&1
 if %ERRORLEVEL% == 0 (
