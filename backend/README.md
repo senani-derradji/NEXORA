@@ -61,7 +61,7 @@ Stored in `backend/.env` (never commit this file):
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `DATABASE_URL` | ✅ | SQLite fallback | Full SQLAlchemy connection string |
+| `DATABASE_URL` |  | SQLite fallback | Full SQLAlchemy connection string |
 | `SECRET_KEY` | ⚠️ | `"derradji"` | JWT signing key — **change in production!** |
 | `ALGORITHM` | ❌ | `HS256` | JWT algorithm |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | ❌ | `60` | Token TTL in minutes |

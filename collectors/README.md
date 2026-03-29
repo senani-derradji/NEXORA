@@ -1,6 +1,6 @@
 # NEXORA Collectors
 
-> **Autonomous network observability collector service** — v0.2.0  
+> **Autonomous network observability collector service** — v0.2.0
 > Polls devices via SNMP, normalises metrics, buffers them during core outages, and streams to the NEXORA Core via gRPC.
 
 ---
@@ -95,7 +95,7 @@ Stored in `collectors/config/db_config/.env`:
 
 | Variable | Required | Description |
 |---|---|---|
-| `DATABASE_URL` | ✅ | Full SQLAlchemy connection string for nexora-db (PostgreSQL) |
+| `DATABASE_URL` |  | Full SQLAlchemy connection string for nexora-db (PostgreSQL) |
 
 **Example:**
 ```env

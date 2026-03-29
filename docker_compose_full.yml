@@ -45,6 +45,9 @@ services:
     profiles: [vlab]
     privileged: true
     expose: ["161/udp"]
+    volumes:
+      - ./logs/mikrotik-switch:/var/log/nexora
+    command: sh -c "/startup.sh 2>&1 | tee /var/log/nexora/switch.log"
     networks:
       my_shared_network:
         ipv4_address: 172.18.0.2
@@ -64,6 +67,9 @@ services:
     profiles: [vlab]
     privileged: true
     expose: ["161/udp"]
+    volumes:
+      - ./logs/mikrotik-router:/var/log/nexora
+    command: sh -c "/startup.sh 2>&1 | tee /var/log/nexora/router.log"
     networks:
       my_shared_network:
         ipv4_address: 172.18.0.9
@@ -89,6 +95,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/init_postgres.sh:/docker-entrypoint-initdb.d/init.sh:ro
+      - ./logs/postgres:/var/log/nexora
+
+    command: sh -c "docker-entrypoint.sh postgres 2>&1 | tee /var/log/nexora/postgres.log"
 
     ports:
       - "5432:5432"
@@ -112,11 +121,6 @@ services:
         reservations:
           memory: 128m
 
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
 
   influxdb:
@@ -137,6 +141,11 @@ services:
     ports:
       - "8086:8086"
 
+    volumes:
+      - ./logs/influxdb:/var/log/nexora
+
+    command: sh -c "influxd 2>&1 | tee /var/log/nexora/influxdb.log"
+
     healthcheck:
       test: ["CMD-SHELL", "curl -f -H 'Authorization: Token ${INFLUXDB_INIT_ADMIN_TOKEN}' http://localhost:8086/health"]
       interval: 10s
@@ -156,12 +165,6 @@ services:
         reservations:
           memory: 128m
 
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
 
   core:
     build:
@@ -179,6 +182,11 @@ services:
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
       TZ: UTC
+
+    volumes:
+      - ./logs/core:/var/log/nexora
+
+    command: sh -c "python ingester/ingest_service.py 2>&1 | tee /var/log/nexora/core.log"
 
     ports:
       - "50051:50051"
@@ -208,12 +216,6 @@ services:
         reservations:
           memory: 128m
 
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "5"
-
 
   collectors:
     build:
@@ -230,6 +232,11 @@ services:
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
       TZ: UTC
+
+    volumes:
+      - ./logs/collectors:/var/log/nexora
+
+    command: sh -c "/collectors/pre_start_check.sh && python /collectors/main.py 2>&1 | tee /var/log/nexora/collectors.log"
 
     depends_on:
       postgres:
@@ -256,12 +263,6 @@ services:
         reservations:
           memory: 128m
 
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "5"
-
 
 
 
@@ -280,6 +281,11 @@ services:
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
       TZ: UTC
+
+    volumes:
+      - ./logs/backend:/var/log/nexora
+
+    command: sh -c "uvicorn main:app --host 0.0.0.0 --port 8000 --reload --workers 1 2>&1 | tee /var/log/nexora/backend.log"
 
     ports:
       - "8000:8000"
@@ -311,12 +317,6 @@ services:
         reservations:
           memory: 128m
 
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "5"
-
 
 
   frontend:
@@ -333,15 +333,14 @@ services:
     environment:
       - API_URL=http://backend:8000
 
+    volumes:
+      - ./logs/frontend/access.log:/var/log/nginx/access.log
+      - ./logs/frontend/error.log:/var/log/nginx/error.log
+
     networks:
       my_shared_network:
         ipv4_address: 172.18.0.60
 
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
 volumes:
   postgres_data:

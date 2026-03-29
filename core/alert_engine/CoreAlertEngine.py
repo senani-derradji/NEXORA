@@ -345,7 +345,7 @@ class AlertEngine:
                         alert_message=msg,
                         device_id=dev_id
                     )
-                    logger.info(f"✅ ALERT CREATED: {msg} for device_id={dev_id}")
+                    logger.info(f" ALERT CREATED: {msg} for device_id={dev_id}")
                     # Broadcast to WebSocket clients - include hostname for display
                     if broadcast_alert_sync:
                         broadcast_alert_sync({
@@ -384,7 +384,7 @@ class AlertEngine:
                             alert_message=msg,
                             device_id=dev_id
                         )
-                        logger.info(f"✅ ALERT CREATED: {msg} for device_id={dev_id}")
+                        logger.info(f" ALERT CREATED: {msg} for device_id={dev_id}")
                         # Broadcast to WebSocket clients - include hostname for display
                         if broadcast_alert_sync:
                             broadcast_alert_sync({
@@ -406,7 +406,7 @@ class AlertEngine:
                             alert_message=msg,
                             device_id=dev_id
                         )
-                        logger.info(f"✅ ALERT CREATED: {msg} for device_id={dev_id}")
+                        logger.info(f" ALERT CREATED: {msg} for device_id={dev_id}")
                         # Broadcast to WebSocket clients - include hostname for display
                         if broadcast_alert_sync:
                             broadcast_alert_sync({
@@ -428,7 +428,7 @@ class AlertEngine:
                             alert_message=msg,
                             device_id=dev_id
                         )
-                        logger.info(f"✅ ALERT CREATED: {msg} for device_id={dev_id}")
+                        logger.info(f" ALERT CREATED: {msg} for device_id={dev_id}")
                         # Broadcast to WebSocket clients - include hostname for display
                         if broadcast_alert_sync:
                             broadcast_alert_sync({
@@ -450,7 +450,7 @@ class AlertEngine:
                             alert_message=msg,
                             device_id=dev_id
                         )
-                        logger.info(f"✅ ALERT CREATED: {msg} for device_id={dev_id}")
+                        logger.info(f" ALERT CREATED: {msg} for device_id={dev_id}")
                         # Broadcast to WebSocket clients - include hostname for display
                         if broadcast_alert_sync:
                             broadcast_alert_sync({
@@ -465,7 +465,7 @@ class AlertEngine:
                             alert_message=msg,
                             device_id=dev_id
                         )
-                        logger.info(f"✅ ALERT CREATED: {msg} for device_id={dev_id}")
+                        logger.info(f" ALERT CREATED: {msg} for device_id={dev_id}")
                         # Broadcast to WebSocket clients - include hostname for display
                         if broadcast_alert_sync:
                             broadcast_alert_sync({
@@ -490,7 +490,7 @@ class AlertEngine:
                             alert_message=msg,
                             device_id=dev_id
                         )
-                        logger.info(f"✅ ALERT CREATED: {msg} for device_id={dev_id}")
+                        logger.info(f" ALERT CREATED: {msg} for device_id={dev_id}")
                         # Broadcast to WebSocket clients - include hostname for display
                         if broadcast_alert_sync:
                             broadcast_alert_sync({
@@ -512,7 +512,7 @@ class AlertEngine:
                             alert_message=msg,
                             device_id=dev_id
                         )
-                        logger.info(f"✅ ALERT CREATED: {msg} for device_id={dev_id}")
+                        logger.info(f" ALERT CREATED: {msg} for device_id={dev_id}")
                         # Broadcast to WebSocket clients - include hostname for display
                         if broadcast_alert_sync:
                             broadcast_alert_sync({
@@ -534,7 +534,7 @@ class AlertEngine:
                             alert_message=msg,
                             device_id=dev_id
                         )
-                        logger.info(f"✅ ALERT CREATED: {msg} for device_id={dev_id}")
+                        logger.info(f" ALERT CREATED: {msg} for device_id={dev_id}")
                         # Broadcast to WebSocket clients - include hostname for display
                         if broadcast_alert_sync:
                             broadcast_alert_sync({

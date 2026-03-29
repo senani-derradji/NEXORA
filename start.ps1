@@ -3,6 +3,8 @@ param(
 )
 
 $ComposeFile = "docker_compose_full.yml"
+$TokenFile = ".influxdb_token"
+$TelegramEnvFile = "core/configs/.env"
 
 Write-Host "Using profile: $Profile"
 
@@ -90,7 +92,7 @@ $envFiles = @{
     "collectors/config/db_config/.env" = $collectorsEnvContent
     "frontend/.env" = $frontendEnvContent
     "docker/.env" = $dockerEnvContent
-    "security/.env" = $SecurityEnvContent
+    "backend/security/.env" = $SecurityEnvContent
 }
 
 foreach ($file in $envFiles.Keys) {
@@ -114,51 +116,99 @@ do {
     Write-Host "Status: $status"
 } while ($status -ne "healthy")
 
-Write-Host "InfluxDB is ready!"
 
-Write-Host ""
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  INFLUXDB SETUP REQUIRED" -ForegroundColor Cyan
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "Please open InfluxDB in your browser and create a token:" -ForegroundColor Yellow
-Write-Host ""
-Write-Host "  URL: http://localhost:8086" -ForegroundColor Green
-Write-Host ""
-Write-Host "  Login credentials:" -ForegroundColor Yellow
-Write-Host "    Username: admin" -ForegroundColor White
-Write-Host "    Password: admin123" -ForegroundColor White
-Write-Host ""
-Write-Host "  Steps to create token:" -ForegroundColor Yellow
-Write-Host "    1. Log in to InfluxDB" -ForegroundColor White
-Write-Host "    2. Go to 'Data' > 'API Tokens'" -ForegroundColor White
-Write-Host "    3. Click 'Generate API Token'" -ForegroundColor White
-Write-Host "    4. Select 'All Access Token'" -ForegroundColor White
-Write-Host "    5. Click 'Save'" -ForegroundColor White
-Write-Host "    6. Copy the generated token" -ForegroundColor White
-Write-Host ""
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host ""
-
-$token = Read-Host "Paste the InfluxDB token here"
-$telegramChatID = Read-Host "Paste the Telegram chat ID here"
-$telegramBotToken = Read-Host "Paste the Telegram bot token here"
-
+# ── InfluxDB Token ────────────────────────────────────────────────────
+if (Test-Path $TokenFile) {
+    $token = (Get-Content $TokenFile -Raw).Trim()
+    if (-not [string]::IsNullOrWhiteSpace($token)) {
+        Write-Host "Found saved InfluxDB token." -ForegroundColor Green
+    } else {
+        $token = $null
+    }
+} else {
+    $token = $null
+}
 
 if ([string]::IsNullOrWhiteSpace($token)) {
-    Write-Host "Error: Token cannot be empty!" -ForegroundColor Red
-    exit 1
-}
-if ([string]::IsNullOrWhiteSpace($telegramChatID)) {
-    Write-Host "Error: Telegram chat ID cannot be empty!" -ForegroundColor Red
-    exit 1
-}
-if ([string]::IsNullOrWhiteSpace($telegramBotToken)) {
-    Write-Host "Error: Telegram bot token cannot be empty!" -ForegroundColor Red
-    exit 1
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host "  INFLUXDB SETUP REQUIRED" -ForegroundColor Cyan
+    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "Please open InfluxDB in your browser and create a token:" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  URL: http://localhost:8086" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "  Login credentials:" -ForegroundColor Yellow
+    Write-Host "    Username: admin" -ForegroundColor White
+    Write-Host "    Password: admin123" -ForegroundColor White
+    Write-Host ""
+    Write-Host "  Steps to create token:" -ForegroundColor Yellow
+    Write-Host "    1. Log in to InfluxDB" -ForegroundColor White
+    Write-Host "    2. Go to 'Data' > 'API Tokens'" -ForegroundColor White
+    Write-Host "    3. Click 'Generate API Token'" -ForegroundColor White
+    Write-Host "    4. Select 'All Access Token'" -ForegroundColor White
+    Write-Host "    5. Click 'Save'" -ForegroundColor White
+    Write-Host "    6. Copy the generated token" -ForegroundColor White
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host ""
+
+    $token = Read-Host "Paste the InfluxDB token here"
+
+    if ([string]::IsNullOrWhiteSpace($token)) {
+        Write-Host "Error: Token cannot be empty!" -ForegroundColor Red
+        exit 1
+    }
+
+    Set-Content -Path $TokenFile -Value $token
+    Write-Host "Token saved for future runs." -ForegroundColor Green
 }
 
-write-host "========================================"
+
+# ── Telegram Credentials ──────────────────────────────────────────────
+$telegramChatID = $null
+$telegramBotToken = $null
+
+if (Test-Path $TelegramEnvFile) {
+    $existingContent = Get-Content $TelegramEnvFile -Raw
+    if ($existingContent -match "TELEGRAM_CHAT_ID=(.+)") {
+        $telegramChatID = $Matches[1].Trim()
+    }
+    if ($existingContent -match "TELEGRAM_BOT_TOKEN=(.+)") {
+        $telegramBotToken = $Matches[1].Trim()
+    }
+}
+
+if (-not [string]::IsNullOrWhiteSpace($telegramChatID) -and -not [string]::IsNullOrWhiteSpace($telegramBotToken)) {
+    Write-Host "Found saved Telegram credentials." -ForegroundColor Green
+} else {
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host "  TELEGRAM SETUP REQUIRED" -ForegroundColor Cyan
+    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host ""
+
+    if ([string]::IsNullOrWhiteSpace($telegramChatID)) {
+        $telegramChatID = Read-Host "Paste the Telegram chat ID here"
+        if ([string]::IsNullOrWhiteSpace($telegramChatID)) {
+            Write-Host "Error: Telegram chat ID cannot be empty!" -ForegroundColor Red
+            exit 1
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($telegramBotToken)) {
+        $telegramBotToken = Read-Host "Paste the Telegram bot token here"
+        if ([string]::IsNullOrWhiteSpace($telegramBotToken)) {
+            Write-Host "Error: Telegram bot token cannot be empty!" -ForegroundColor Red
+            exit 1
+        }
+    }
+}
+
+
+Write-Host ""
+Write-Host "========================================"
 Write-Host ""
 Write-Host "Token received: $token" -ForegroundColor Green
 Write-Host "Telegram chat ID received: $telegramChatID" -ForegroundColor Green

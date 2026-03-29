@@ -76,8 +76,8 @@ NEXORA is a self-hosted, containerised observability stack built around industry
 │    └──► WriteHealthStatus()  ───────────────────────────────────────┤
 │              └──► InfluxDB write_api()                              │
 └───────────────────────────────────────────────────────┬─────────────┘
-                │ PostgreSQL                             │ InfluxDB
-                ▼                                        ▼
+            │ PostgreSQL                                │ InfluxDB
+            ▼                                           ▼
 ┌─────────────────────────┐              ┌──────────────────────────┐
 │   POSTGRES  (.20)       │              │   INFLUXDB  (.10)        │
 │                         │              │                          │
@@ -108,7 +108,7 @@ NEXORA is a self-hosted, containerised observability stack built around industry
 └───────────────────────────────────────────────────────┘
              │
              ▼
-       ┌───────────────────────────────────────────────────────┐
+┌───────────────────────────────────────────────────────┐
 │                    FRONTEND  (.60)                    │
 │                                                       │
 │  React Dashboard                                      │

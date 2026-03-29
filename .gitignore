@@ -20,4 +20,8 @@ dz.py
 .vscode
 .env
 nexora/
-scripts/clean_envs.ps1
+clean_envs.ps1
+
+# Logs
+logs/**/*.log
+!logs/**/.gitkeep

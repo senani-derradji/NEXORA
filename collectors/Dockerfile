@@ -36,7 +36,7 @@ EXPOSE 161/udp
 
 # Pre-start check script - runs before main collector
 COPY pre_start_check.sh /collectors/pre_start_check.sh
-RUN chmod +x /collectors/pre_start_check.sh
+RUN sed -i 's/\r$//' /collectors/pre_start_check.sh && chmod +x /collectors/pre_start_check.sh
 
 # Main entry point - runs pre_check first, then main.py
 CMD ["/bin/bash", "-c", "/collectors/pre_start_check.sh && python /collectors/main.py"]

@@ -90,7 +90,7 @@ CoreWriter.write_in_db()         (writer/data_writer.py)
 
 | Variable | Required | Description |
 |---|---|---|
-| `DATABASE_URL` | ✅ | Full SQLAlchemy connection string |
+| `DATABASE_URL` |  | Full SQLAlchemy connection string |
 
 ```env
 DATABASE_URL=postgresql+psycopg2://nexorauser:nexorapass@postgres:5432/nexoradb
@@ -100,10 +100,10 @@ DATABASE_URL=postgresql+psycopg2://nexorauser:nexorapass@postgres:5432/nexoradb
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `INFLUXDB_INIT_ADMIN_TOKEN` | ✅ | — | InfluxDB API token |
-| `TSBS_ORGANIZATION` | ✅ | — | InfluxDB org name |
-| `TSBS_BUCKET` | ✅ | — | InfluxDB bucket name |
-| `TSBS_URL` | ✅ | `http://influxdb:8086` | InfluxDB base URL |
+| `INFLUXDB_INIT_ADMIN_TOKEN` |  | — | InfluxDB API token |
+| `TSBS_ORGANIZATION` |  | — | InfluxDB org name |
+| `TSBS_BUCKET` |  | — | InfluxDB bucket name |
+| `TSBS_URL` |  | `http://influxdb:8086` | InfluxDB base URL |
 | `TSBS_RAW_RETENTION` | ❌ | `7d` | Raw data retention window |
 | `TSBS_PROCESSED_RETENTION` | ❌ | `30d` | Processed data retention window |
 
