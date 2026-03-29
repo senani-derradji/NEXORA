@@ -73,27 +73,27 @@ NEXORA is a self-hosted, containerised observability stack built around industry
 │      │                                                │
 │      ▼                                                │
 │  CoreWriter.write_in_db()                             │
-│    ├──► DeviceOperations.upsert()  ─────────────────────────────────┐
-│    ├──► AlertEngine.Engine()       ─────────────────────────────────┤
-│    │       └──► alertOPS.create_alert()  ────────────────────────── │
-│    └──► WriteHealthStatus()  ───────────────────────────────────────┤
-│              └──► InfluxDB write_api()                              │
-└───────────────────────────────────────────────────────┬─────────────┘
-            │ PostgreSQL                                │ InfluxDB
-            ▼                                           ▼
-┌─────────────────────────┐              ┌──────────────────────────┐
-│   POSTGRES  (.20)       │              │   INFLUXDB  (.10)        │
-│                         │              │                          │
-│  Tables:                │              │  Measurement:            │
-│  • users                │              │  DEVICE_STATS_V1         │
-│  • devices              │              │                          │
-│  • alerts               │              │  Tags: hostname, ip,     │
-│                         │              │        mac, device_type  │
-│  Managed by nexora-db   │              │                          │
-│  (shared ORM package)   │              │  Fields: cpu, ram, disk, │
-└────────────┬────────────┘              │    net counters, latency,│
-             │                           │    packet_loss, status   │
-             │                           └──────────────────────────┘
+│    ├──► DeviceOperations.upsert()                     |
+│    ├──► AlertEngine.Engine()                          |
+│    │       └──► alertOPS.create_alert()               |
+│    └──► WriteHealthStatus()                           |
+│              └──► InfluxDB write_api()                |
+|_______________________________________________________|
+            │ PostgreSQL                       │ InfluxDB
+            ▼                                  ▼
+┌─────────────────────────┐           ┌──────────────────────────┐
+│   POSTGRES  (.20)       │           │   INFLUXDB  (.10)        │
+│                         │           │                          │
+│  Tables:                │           │  Measurement:            │
+│  • users                │           │  DEVICE_STATS_V1         │
+│  • devices              │           │                          │
+│  • alerts               │           │  Tags: hostname, ip,     │
+│                         │           │        mac, device_type  │
+│  Managed by nexora-db   │           │                          │
+│  (shared ORM package)   │           │  Fields: cpu, ram, disk, │
+└────────────┬────────────┘           │    net i/o , latency,    │
+             │                        │    packet_loss, status   │
+             │                        └──────────────────────────┘
              │ REST / HTTP :8000
              ▼
 ┌───────────────────────────────────────────────────────┐
