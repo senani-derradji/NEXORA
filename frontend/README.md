@@ -1,4 +1,4 @@
-# NEXORA Frontend
+# NEXORA Frontend (VIBE CODING - Created by AI)
 
 > **React-based observability platform frontend** — v0.2.0
 > Modern, responsive dashboard for monitoring network devices, alerts, and metrics in real-time.
