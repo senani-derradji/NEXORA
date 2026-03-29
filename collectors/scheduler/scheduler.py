@@ -1,9 +1,8 @@
 import asyncio
 import logging
 from engines.snmp_engine.snmp_collector import SNMPConfig, SNMPMonitor
+from engines.snmp_engine.scanner import NetworkScanner
 from normalizer.normalizer import Normalizer
-from scheduler.heartbeat import DeviceHeartbeat
-from utils.default_data import down_metric
 from transport.check_core_health import CoreHealth
 from buffer.buffer_manager import BufferManager
 from transport.grpc_client import CoreClient
@@ -28,6 +27,12 @@ class Scheduler:
         self.snmp_collector = SNMPMonitor(config=self.config)
         self.CoreClient = CoreClient(host=self.host, port=self.port)
 
+        self.scanner = NetworkScanner(
+            subnet="172.18.0.0/24",
+            devices_file=devices_file,
+            default_interval=15,
+            bootstrapper=self.bootstrapper,
+        )
 
         self.tasks = {}
 
@@ -80,6 +85,7 @@ class Scheduler:
 
     async def start(self):
         asyncio.create_task(self.sync_devices_loop())
+        asyncio.create_task(self.scan_loop())
         await self.spawn_tasks()
         await asyncio.Event().wait()
 
@@ -90,6 +96,22 @@ class Scheduler:
             if mac not in self.tasks:
                 self.tasks[mac] = asyncio.create_task(self.run_device(device))
 
+
+    async def scan_loop(self):
+        while True:
+            await asyncio.sleep(60)
+            try:
+                discovered = await self.scanner.scan_async()
+                if discovered:
+                    logger.info(f"Scanner found {len(discovered)} new device(s), reloading...")
+                    new_devices = self.bootstrapper.check_dbs_exists_and_matched_with_yaml()
+                    old_set = {d["mac_address"] for d in self.devices}
+                    new_set = {d["mac_address"] for d in new_devices}
+                    if old_set != new_set:
+                        self.devices = new_devices
+                        await self.spawn_tasks()
+            except Exception as e:
+                logger.error(f"Scanner error: {e}")
 
     async def sync_devices_loop(self):
         while True:

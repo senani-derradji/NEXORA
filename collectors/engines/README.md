@@ -8,6 +8,7 @@ This folder is the **protocol plugin layer**. Each engine knows how to speak a s
 engines/
 └── snmp_engine/
     ├── snmp_collector.py       # Core SNMP poller — all metrics
+    ├── scanner.py              # Network discovery via nmap — auto-discovers new devices
     └── utils/
         ├── detect_vendor.py    # sysObjectID → vendor name
         └── detect_type.py      # sysObjectID → device type string
@@ -115,6 +116,69 @@ Thin alias for `collect_device_metrics`. Returns the same `dict` (name is a lega
 | Windows ping support | Update `ping_device()` to use `-n` instead of `-c` |
 | Add new OIDs | Add class-level constants and new `_get_*` private methods |
 | Add a new engine | Create `engines/new_engine/` with the same `collect_device_metrics()` interface, then import and use in `scheduler.py` |
+
+---
+
+## `snmp_engine/scanner.py` — Network Discovery
+
+Automatically discovers live devices on the network using `nmap` and merges them into `devices.yml`.
+
+### `NetworkScanner` Class
+
+| Parameter | Default | Description |
+|---|---|---|
+| `subnet` | `"172.18.0.0/24"` | Subnet to scan (CIDR notation) |
+| `devices_file` | `"config/devices.yml"` | Path to the device inventory YAML |
+| `default_interval` | `15` | Default polling interval (seconds) for new devices |
+| `bootstrapper` | `None` | Optional `DeviceBootstrapper` instance for DB cross-checking |
+
+### Service Filtering
+
+The scanner automatically skips NEXORA infrastructure IPs and hostnames so they are not registered as monitored devices:
+
+**Skipped IPs:** `172.18.0.1`, `.10` (influxdb), `.20` (postgres), `.30` (core), `.40` (collectors), `.50` (backend), `.60` (frontend)
+
+**Skipped hostnames:** `influxdb`, `postgres`, `core`, `collectors`, `backend`, `frontend`, `grafana`, `redis`, `rabbitmq`, `elasticsearch`, `kibana`, `prometheus`, `nginx`, `apache`, `mongodb`, `mysql`, `mariadb`, and more.
+
+### Key Methods
+
+| Method | Description |
+|---|---|
+| `scan()` | Runs nmap discovery, compares against YAML + DB, appends new devices to `devices.yml` |
+| `scan_async()` | Async wrapper using `asyncio.to_thread()` |
+| `_nmap_discover()` | Executes `nmap -sn --min-parallelism 10 <subnet>`, parses live hosts |
+| `_detect_device_type(hostname)` | Heuristic classifier: router, switch, firewall, AP, server, workstation, printer, camera |
+| `_is_service(hostname, ip)` | Checks if an IP/hostname belongs to an internal NEXORA service |
+| `_load_existing_devices()` | Reads and cleans existing entries from `devices.yml` |
+| `_save_devices(devices)` | Merges, deduplicates, filters services, writes back to YAML |
+
+### Deduplication Logic
+
+A device is considered **already known** (and skipped) if:
+- Its IP exists in `devices.yml`, OR
+- Its IP exists in the PostgreSQL database (via bootstrapper), OR
+- Its MAC address exists in either YAML or DB
+
+### CLI Usage
+
+```bash
+python scanner.py --subnet 172.18.0.0/24 --devices-file config/devices.yml --interval 15
+```
+
+### Integration
+
+`scanner.py` is called by `pre_start_check.sh` during the Docker container startup:
+```bash
+python3 /collectors/engines/snmp_engine/scanner.py --devices-file "$CONFIG_FILE" --subnet "172.18.0.0/24"
+```
+
+It can also be used programmatically:
+```python
+from engines.snmp_engine.scanner import NetworkScanner
+
+scanner = NetworkScanner(subnet="172.18.0.0/24", devices_file="config/devices.yml")
+new_devices = scanner.scan()  # Returns list of newly discovered devices
+```
 
 ---
 

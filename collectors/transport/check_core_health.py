@@ -3,7 +3,7 @@ import grpc
 
 class CoreHealth:
     @staticmethod
-    def check(host, port, timeout=8) -> bool:
+    def check(host, port, timeout=10) -> bool:
         channel = None
         print(f"[HealthCheck] Checking Core at {host}:{port}")
 

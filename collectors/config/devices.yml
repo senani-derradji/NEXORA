@@ -1,5 +1,6 @@
 devices:
-- ip_address: 172.18.0.2
+- ip_address: 172.18.0.3
   interval: 15
-- ip_address: 172.18.0.9
-  interval: 15
+  hostname: f_firewall
+  device_type: firewall
+  mac_address: 06:57:47:C1:79:B9

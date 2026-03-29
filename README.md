@@ -10,7 +10,7 @@ NEXORA is a self-hosted, containerised observability stack built around industry
 
 | Capability | Description |
 |---|---|
-| **Device discovery & inventory** | Register devices via YAML or REST API. Device state is kept in sync automatically. |
+| **Device discovery & inventory** | Auto-discover devices via nmap scan or register manually via YAML / REST API. Device state is kept in sync automatically. |
 | **Real-time metric collection** | Polls every registered device over SNMP at configurable per-device intervals (CPU, RAM, disk, network counters, latency, packet loss). |
 | **Streaming ingest pipeline** | Metrics flow from collectors to the Core over gRPC — binary, efficient, and health-checked. |
 | **Strict data validation** | The Core processor validates every field (hostname regex, IP/MAC format, percentage bounds, Unix timestamp range) before anything is written. |
@@ -37,8 +37,11 @@ NEXORA is a self-hosted, containerised observability stack built around industry
 ┌───────────────────────────────────────────────────────┐
 │                    COLLECTORS  (.40)                  │
 │                                                       │
+│  pre_start_check.sh ──► scanner.py (nmap discovery)   │
+│      │                                                │
+│      ▼                                                │
 │  config/devices.yml ──► DeviceBootstrapper            │
-│                              │                        │
+│                              │                        |
 │                              ▼                        │
 │  Scheduler (1 asyncio task / device)                  │
 │      │                                                │
@@ -133,17 +136,12 @@ NEXORA is a self-hosted, containerised observability stack built around industry
 | `postgres` | `postgres` | `172.18.0.20` | `5432` | Relational DB — devices, users, alerts (PostgreSQL 16) |
 | `influxdb` | `influxdb` | `172.18.0.10` | `8086` | Time-series DB — metric history (InfluxDB 2) |
 | `core` | `core` | `172.18.0.30` | `50051` | gRPC ingest server — validation, alerting, writing |
-| `collectors` | `collectors` | `172.18.0.40` | `50052→50051` | SNMP poller — per-device async collection |
+| `collectors` | `collectors` | `172.18.0.40` | `50052→50051` | SNMP poller — per-device async collection + pre-start device check |
 | `backend` | `backend` | `172.18.0.50` | `8000` | REST API — management interface |
-| `frontend` | `frontend` | `172.18.0.60` | `80` | React web dashboard — monitoring UI |
-| `v_lab_linux` | `linux` | `172.18.0.9` | `161` | Virtual lab: Linux server (SNMP-enabled) |
-| `v_lab_linux_2` | `linux_2` | `172.18.0.5` | `161` | Virtual lab: Linux server 2 |
-| `v_lab_linux_3` | `linux_3` | `172.18.0.4` | `161` | Virtual lab: Linux server 3 |
-| `v_lab_linux_4` | `linux_4` | `172.18.0.3` | `161` | Virtual lab: Linux server 4 |
-| `v_lab_windows` | `windows` | `172.18.0.8` | `161` | Virtual lab: Windows server (SNMP-enabled) |
-| `v_lab_micro_router` | `m_router` | `172.18.0.7` | `161` | Virtual lab: MikroTik router |
-| `v_lab_micro_switch` | `m_switch` | `172.18.0.6` | `161` | Virtual lab: MikroTik switch |
-| `v_lab_fortinet_firewall` | `f_firewall` | — | `161` | Virtual lab: Fortinet firewall |
+| `frontend` | `frontend` | `172.18.0.60` | `3000:8080` | React web dashboard — monitoring UI |
+| `v_lab_fortinet_firewall` | `f_firewall` | `172.18.0.3` | `161/udp` | Virtual lab: Fortinet firewall (SNMP-enabled) |
+| `v_lab_switch` | `mikrotik-switch` | `172.18.0.2` | `161/udp` | Virtual lab: MikroTik switch |
+| `v_lab_router` | `mikrotik-router` | `172.18.0.9` | `161/udp` | Virtual lab: MikroTik router |
 
 **Network:** All services share `my_shared_network` — an overlay (`172.18.0.0/24`) that is created automatically by `docker compose`. If you need to pre-create it manually, run `./docker/create_network.sh` (or `.bat`).
 
@@ -152,6 +150,8 @@ NEXORA is a self-hosted, containerised observability stack built around industry
 |---|---|---|
 | `influxdb2-data` | `/var/lib/influxdb2` | InfluxDB data persistence |
 | `postgres_data` | `/var/lib/postgresql/data` | PostgreSQL data persistence |
+| `./logs/<service>` | `/var/log/nexora` | Per-service log output (host ↔ container) |
+| `./collectors/config/devices.yml` | `/collectors/config/devices.yml` | Device inventory (shared with scanner) |
 
 **Startup dependency order:**
 ```
@@ -169,7 +169,7 @@ influxdb (healthy) ──┤──► core ─────┐
 .env
 # Edit .env and enter your secure passwords/tokens
 
-# 2. Start everything
+# 2. Start everything (collectors runs pre_start_check.sh → scanner.py → main.py)
 docker compose -f docker_compose_full.yml up --build
 
 # 3. Frontend Dashboard
@@ -181,6 +181,12 @@ open http://localhost:8000/docs
 # 5. InfluxDB UI
 open http://localhost:8086
 ```
+
+> On startup, the collectors container runs `pre_start_check.sh` which:
+> 1. Scans the network for new devices via nmap
+> 2. Validates all devices in `devices.yml` are reachable
+> 3. Enriches device info via SNMP (hostname, vendor, type)
+> 4. Only then starts `main.py` for metric collection
 
 > To run without the virtual lab devices (real infrastructure only):
 > ```bash
@@ -195,13 +201,14 @@ open http://localhost:8086
 NEXORA/
 ├── .env         # Template for all infrastructure secrets
 ├── backend/             # FastAPI REST API (auth, devices, alerts, dashboard, metrics)
-├── collectors/          # SNMP collector service
+├── collectors/          # SNMP collector service + network scanner + pre-start checks
 ├── core/                # gRPC ingest, processing, alerting, InfluxDB write
 ├── frontend/            # React-based web dashboard
 ├── nexora-db-package/   # Shared SQLAlchemy ORM package (published to PyPI)
 ├── docker/
 │   ├── init_postgres.sh   # Dynamic PostgreSQL DB/user permission script
 │   └── create_network.*   # Helper scripts for manual network creation
+├── logs/                # Centralized log output (per-service directories, git-ignored)
 ├── v_labs/              # Virtual lab device simulators (SNMP-enabled containers)
 └── docker_compose_full.yml
 ```
@@ -223,11 +230,14 @@ NEXORA/
 
 ### What works today
 - Full metric collection pipeline: SNMP → gRPC → validate → PostgreSQL + InfluxDB
+- Network discovery via nmap (`scanner.py`) — auto-discovers and registers new devices
+- Pre-start device health checks (`pre_start_check.sh`) — ping, MAC resolve, SNMP validation before collection starts
 - Threshold alerting (11 metrics, 2 levels) written to PostgreSQL
 - REST API: JWT auth, device CRUD, dashboard, metrics, alert retrieval
 - WebSocket real-time alert notifications
 - Hot-reload device list from YAML (no restart needed)
 - Resilient buffering with disk fallback on Core outage
+- Centralized logging — all service output tee'd to `logs/<service>/` on the host
 - Virtual lab environment for testing without real hardware
 - React-based web dashboard with real-time monitoring
 - Device management, alert tracking, and metric visualization

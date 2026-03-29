@@ -3,7 +3,6 @@ param(
 )
 
 $ComposeFile = "docker_compose_full.yml"
-$TokenFile = ".influxdb_token"
 $TelegramEnvFile = "core/configs/.env"
 
 Write-Host "Using profile: $Profile"
@@ -23,7 +22,7 @@ INFLUXDB_ADMIN_PASSWORD=admin123
 INFLUXDB_DB=mydb
 INFLUXDB_ORG=myorg
 INFLUXDB_BUCKET=dr_test
-INFLUXDB_INIT_ADMIN_TOKEN=Token
+INFLUXDB_INIT_ADMIN_TOKEN=placeholder
 
 VITE_API_BASE_URL=/
 
@@ -37,20 +36,20 @@ INFLUXDB_URL=http://influxdb:8086
 INFLUXDB_ORG=myorg
 INFLUXDB_BUCKET=dr_test
 
-INFLUXDB_INIT_ADMIN_TOKEN=Token
+INFLUXDB_INIT_ADMIN_TOKEN=placeholder
 "@
 
 $coreConfigsEnvContent = @"
 DATABASE_URL=postgresql+psycopg2://nexorauser:nexorapass@postgres:5432/nexoradb
 
-INFLUXDB_INIT_ADMIN_TOKEN=Token
+INFLUXDB_INIT_ADMIN_TOKEN=placeholder
 INFLUXDB_URL=http://influxdb:8086
 TELEGRAM_BOT_TOKEN=BOT
 TELEGRAM_CHAT_ID=CHAT
 "@
 
 $coreTimeSeriesEnvContent = @"
-INFLUXDB_INIT_ADMIN_TOKEN=Token
+INFLUXDB_INIT_ADMIN_TOKEN=placeholder
 TSBS_ORGANIZATION=myorg
 TSBS_BUCKET=dr_test
 TSBS_URL=http://influxdb:8086
@@ -60,7 +59,6 @@ $collectorsEnvContent = @"
 DATABASE_URL=postgresql+psycopg2://nexorauser:nexorapass@postgres:5432/nexoradb
 "@
 
-# Frontend .env content
 $frontendEnvContent = @"
 VITE_API_BASE_URL=http://backend:8000
 "@
@@ -118,78 +116,73 @@ do {
 
 
 # ── InfluxDB Token ────────────────────────────────────────────────────
-if (Test-Path $TokenFile) {
-    $token = (Get-Content $TokenFile -Raw).Trim()
-    if (-not [string]::IsNullOrWhiteSpace($token)) {
-        Write-Host "Found saved InfluxDB token." -ForegroundColor Green
-    } else {
-        $token = $null
-    }
-} else {
-    $token = $null
-}
+Write-Host ""
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "  INFLUXDB TOKEN REQUIRED" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "  1. Open: http://localhost:8086" -ForegroundColor Green
+Write-Host "  2. Login: admin / admin123" -ForegroundColor White
+Write-Host "  3. Go to Data > API Tokens" -ForegroundColor White
+Write-Host "  4. Copy the token (or generate a new one)" -ForegroundColor White
+Write-Host ""
+
+$token = Read-Host "Paste the token here"
 
 if ([string]::IsNullOrWhiteSpace($token)) {
-    Write-Host ""
-    Write-Host "========================================" -ForegroundColor Cyan
-    Write-Host "  INFLUXDB SETUP REQUIRED" -ForegroundColor Cyan
-    Write-Host "========================================" -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "Please open InfluxDB in your browser and create a token:" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "  URL: http://localhost:8086" -ForegroundColor Green
-    Write-Host ""
-    Write-Host "  Login credentials:" -ForegroundColor Yellow
-    Write-Host "    Username: admin" -ForegroundColor White
-    Write-Host "    Password: admin123" -ForegroundColor White
-    Write-Host ""
-    Write-Host "  Steps to create token:" -ForegroundColor Yellow
-    Write-Host "    1. Log in to InfluxDB" -ForegroundColor White
-    Write-Host "    2. Go to 'Data' > 'API Tokens'" -ForegroundColor White
-    Write-Host "    3. Click 'Generate API Token'" -ForegroundColor White
-    Write-Host "    4. Select 'All Access Token'" -ForegroundColor White
-    Write-Host "    5. Click 'Save'" -ForegroundColor White
-    Write-Host "    6. Copy the generated token" -ForegroundColor White
-    Write-Host ""
-    Write-Host "========================================" -ForegroundColor Cyan
-    Write-Host ""
-
-    $token = Read-Host "Paste the InfluxDB token here"
-
-    if ([string]::IsNullOrWhiteSpace($token)) {
-        Write-Host "Error: Token cannot be empty!" -ForegroundColor Red
-        exit 1
-    }
-
-    Set-Content -Path $TokenFile -Value $token
-    Write-Host "Token saved for future runs." -ForegroundColor Green
+    Write-Host "Error: Token cannot be empty!" -ForegroundColor Red
+    exit 1
 }
+
+Write-Host "InfluxDB token retrieved successfully." -ForegroundColor Green
 
 
 # ── Telegram Credentials ──────────────────────────────────────────────
 $telegramChatID = $null
 $telegramBotToken = $null
 
-if (Test-Path $TelegramEnvFile) {
+# Check environment variables first
+$envChatID = [System.Environment]::GetEnvironmentVariable("TELEGRAM_CHAT_ID")
+$envBotToken = [System.Environment]::GetEnvironmentVariable("TELEGRAM_BOT_TOKEN")
+
+if (-not [string]::IsNullOrWhiteSpace($envChatID) -and $envChatID -ne "CHAT") {
+    $telegramChatID = $envChatID
+}
+if (-not [string]::IsNullOrWhiteSpace($envBotToken) -and $envBotToken -ne "BOT") {
+    $telegramBotToken = $envBotToken
+}
+
+# If env vars didn't provide valid values, check existing .env file
+if ($null -ne $telegramChatID -and $null -ne $telegramBotToken) {
+    Write-Host "Found Telegram credentials in environment variables." -ForegroundColor Green
+} elseif (Test-Path $TelegramEnvFile) {
     $existingContent = Get-Content $TelegramEnvFile -Raw
-    if ($existingContent -match "TELEGRAM_CHAT_ID=(.+)") {
-        $telegramChatID = $Matches[1].Trim()
+    if ($null -eq $telegramChatID -and $existingContent -match "TELEGRAM_CHAT_ID=(.+)") {
+        $val = $Matches[1].Trim()
+        if ($val -ne "CHAT" -and -not [string]::IsNullOrWhiteSpace($val)) {
+            $telegramChatID = $val
+        }
     }
-    if ($existingContent -match "TELEGRAM_BOT_TOKEN=(.+)") {
-        $telegramBotToken = $Matches[1].Trim()
+    if ($null -eq $telegramBotToken -and $existingContent -match "TELEGRAM_BOT_TOKEN=(.+)") {
+        $val = $Matches[1].Trim()
+        if ($val -ne "BOT" -and -not [string]::IsNullOrWhiteSpace($val)) {
+            $telegramBotToken = $val
+        }
+    }
+    if ($null -ne $telegramChatID -and $null -ne $telegramBotToken) {
+        Write-Host "Found saved Telegram credentials in .env file." -ForegroundColor Green
     }
 }
 
-if (-not [string]::IsNullOrWhiteSpace($telegramChatID) -and -not [string]::IsNullOrWhiteSpace($telegramBotToken)) {
-    Write-Host "Found saved Telegram credentials." -ForegroundColor Green
-} else {
+# Prompt user for any missing credentials
+if ($null -eq $telegramChatID -or $null -eq $telegramBotToken) {
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Cyan
     Write-Host "  TELEGRAM SETUP REQUIRED" -ForegroundColor Cyan
     Write-Host "========================================" -ForegroundColor Cyan
     Write-Host ""
 
-    if ([string]::IsNullOrWhiteSpace($telegramChatID)) {
+    if ($null -eq $telegramChatID) {
         $telegramChatID = Read-Host "Paste the Telegram chat ID here"
         if ([string]::IsNullOrWhiteSpace($telegramChatID)) {
             Write-Host "Error: Telegram chat ID cannot be empty!" -ForegroundColor Red
@@ -197,59 +190,12 @@ if (-not [string]::IsNullOrWhiteSpace($telegramChatID) -and -not [string]::IsNul
         }
     }
 
-    if ([string]::IsNullOrWhiteSpace($telegramBotToken)) {
+    if ($null -eq $telegramBotToken) {
         $telegramBotToken = Read-Host "Paste the Telegram bot token here"
         if ([string]::IsNullOrWhiteSpace($telegramBotToken)) {
             Write-Host "Error: Telegram bot token cannot be empty!" -ForegroundColor Red
             exit 1
         }
-    }
-}
-
-
-Write-Host ""
-Write-Host "========================================"
-Write-Host ""
-Write-Host "Token received: $token" -ForegroundColor Green
-Write-Host "Telegram chat ID received: $telegramChatID" -ForegroundColor Green
-Write-Host "Telegram bot token received: $telegramBotToken" -ForegroundColor Green
-Write-Host ""
-Write-Host "========================================"
-
-Write-Host "Updating .env files with token..."
-
-$files = @(
-".env",
-"backend/.env",
-"core/configs/.env",
-"core/time_series/config/.env",
-"collectors/config/db_config/.env",
-"frontend/.env"
-)
-
-foreach ($f in $files) {
-
-    if (Test-Path $f) {
-
-        $txt = Get-Content $f -Raw
-
-        if ($txt -match "INFLUXDB_INIT_ADMIN_TOKEN=.*") {
-            $txt = $txt -replace "INFLUXDB_INIT_ADMIN_TOKEN=.*\r?\n?", ""
-        }
-        if ($txt -match "TELEGRAM_CHAT_ID=.*") {
-            $txt = $txt -replace "TELEGRAM_CHAT_ID=.*\r?\n?", ""
-        }
-        if ($txt -match "TELEGRAM_BOT_TOKEN=.*") {
-            $txt = $txt -replace "TELEGRAM_BOT_TOKEN=.*\r?\n?", ""
-        }
-
-
-        $txt += "`r`nINFLUXDB_INIT_ADMIN_TOKEN=$token"
-        $txt += "`r`nTELEGRAM_CHAT_ID=$telegramChatID"
-        $txt += "`r`nTELEGRAM_BOT_TOKEN=$telegramBotToken"
-
-        Set-Content $f $txt
-        Write-Host "Updated $f"
     }
 }
 

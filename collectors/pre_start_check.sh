@@ -29,42 +29,48 @@ log_error() {
 
 check_file_exists() {
     log_info "Checking if $CONFIG_FILE exists..."
-    if [ ! -f "$CONFIG_FILE" ]; then
-        log_error "File $CONFIG_FILE does not exist!"
-        exit 1
+    if [ -d "$CONFIG_FILE" ]; then
+        log_warn "$CONFIG_FILE is a directory, removing it..."
+        rm -rf "$CONFIG_FILE"
     fi
-    log_info "File $CONFIG_FILE exists."
+    if [ ! -f "$CONFIG_FILE" ]; then
+        log_warn "File $CONFIG_FILE does not exist, creating empty devices file..."
+        mkdir -p "$(dirname "$CONFIG_FILE")"
+        echo "devices: []" > "$CONFIG_FILE"
+        log_info "Created empty $CONFIG_FILE"
+    else
+        log_info "File $CONFIG_FILE exists."
+    fi
+}
+
+scan_network() {
+    log_info "Running network scanner to discover devices..."
+    python3 /collectors/engines/snmp_engine/scanner.py --devices-file "$CONFIG_FILE" --subnet "172.18.0.0/24"
+
+    if [ $? -ne 0 ]; then
+        log_warn "Network scanner encountered errors, continuing with existing devices..."
+    else
+        log_info "Network scan completed."
+    fi
 }
 
 validate_yaml_format() {
     log_info "Validating YAML format..."
 
-    log_info "DEBUG: First 10 lines of $CONFIG_FILE:"
-    head -n 10 "$CONFIG_FILE" | while read -r line; do
-        log_info "DEBUG LINE: '$line'"
-    done
-
-    log_info "DEBUG: Checking for 'ip:' pattern..."
-    if grep -qE "^[[:space:]]*- ip:" "$CONFIG_FILE"; then
-        log_info "DEBUG: Found '- ip:' pattern"
-    else
-        log_info "DEBUG: Did NOT find '- ip:' pattern"
-    fi
-
-    if grep -qE "ip_address:" "$CONFIG_FILE"; then
-        log_info "DEBUG: Found 'ip_address:' pattern"
-    else
-        log_info "DEBUG: Did NOT find 'ip_address:' pattern"
-    fi
-
-    log_info "DEBUG: Lines containing 'ip':"
-    grep -E "ip" "$CONFIG_FILE" | while read -r line; do
-        log_info "DEBUG: '$line'"
-    done
-
     if ! head -n 1 "$CONFIG_FILE" | grep -q "^devices:"; then
         log_error "Invalid YAML format: File must start with 'devices:'"
         exit 1
+    fi
+
+    device_count=$(python3 -c "import yaml; d=yaml.safe_load(open('$CONFIG_FILE')); print(len(d.get('devices', [])))" 2>/dev/null || echo "0")
+
+    if [ "$device_count" = "0" ]; then
+        log_warn "No devices found in $CONFIG_FILE. Waiting for scanner to populate..."
+        if ! grep -qE "ip_address:" "$CONFIG_FILE"; then
+            log_warn "No devices in config, skipping validation (scanner found nothing)."
+            log_info "YAML format is valid (empty device list)."
+            return
+        fi
     fi
 
     if (! grep -qE "^[[:space:]]*- ip:" "$CONFIG_FILE") && (! grep -qE "ip_address:" "$CONFIG_FILE"); then
@@ -327,6 +333,12 @@ async def main():
         sys.exit(1)
 
     devices = data['devices']
+
+    if not devices:
+        log_warn("No devices found in config, skipping device processing.")
+        log_info("="*50)
+        return
+
     working_devices = []
     failed_devices = []
     snmp_unavailable = []
@@ -381,6 +393,7 @@ main() {
     log_info "========================================="
 
     check_file_exists
+    scan_network
     validate_yaml_format
     process_devices
 

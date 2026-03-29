@@ -49,7 +49,7 @@ class CoreClient:
         )
 
         try:
-            response = self.stub.SendMetric(proto, timeout=5)
+            response = self.stub.SendMetric(proto, timeout=10)
             print(f"[Collector] Metric Status : {response.success}")
             return {"success": response.success}
 

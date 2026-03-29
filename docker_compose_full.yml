@@ -1,22 +1,25 @@
 services:
 
-  # v_lab_fortinet_firewall:
-  #   build:
-  #     context: ./v_labs/fortinet_firewall
-  #     dockerfile: Dockerfile
+  v_lab_fortinet_firewall:
+    build:
+      context: ./v_labs/fortinet_firewall
+      dockerfile: Dockerfile
 
-  #   container_name: f_firewall
-  #   restart: unless-stopped
-  #   profiles: [vlab]
-  #   expose: ["161/udp"]
-  #   networks:
-  #     my_shared_network:
-  #       ipv4_address: 172.18.0.2
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         cpus: "0.2"
-  #         memory: 64m
+    container_name: f_firewall
+    restart: unless-stopped
+    profiles: [vlab]
+    expose: ["161/udp"]
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.2"
+          memory: 64m
+
+
+
   # v_lab_linux:
   #   build:
   #     context: ./v_labs/linux_
@@ -235,6 +238,7 @@ services:
 
     volumes:
       - ./logs/collectors:/var/log/nexora
+      - ./collectors/config/devices.yml:/collectors/config/devices.yml
 
     command: sh -c "/collectors/pre_start_check.sh && python /collectors/main.py 2>&1 | tee /var/log/nexora/collectors.log"
 

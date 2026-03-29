@@ -21,6 +21,9 @@ dz.py
 .env
 nexora/
 clean_envs.ps1
+NEXT_ROADMAP
+.influxdb_token
+null
 
 # Logs
 logs/**/*.log

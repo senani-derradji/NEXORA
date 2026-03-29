@@ -28,31 +28,29 @@ devices:
     interval: <seconds>           # Polling interval per device
 ```
 
-### Current Entries (test data — replace with real devices)
+### Current Entries
 
 | Hostname | IP | MAC | Type | Interval |
 |---|---|---|---|---|
-| server1linux | 172.18.0.9 | 66:c6:6b:b4:4b:47 | server | 5 s |
-| server2win | 172.18.0.8 | 55:b6:6c:b4:4a:50 | server | 5 s |
-| croute | 172.18.0.7 | 55:b6:6c:b4:4a:53 | router | 5 s |
-| cswitch | 172.18.0.6 | 55:b6:6c:b4:4a:52 | switch | 5 s |
-| ffwall | 172.18.0.5 | 55:b6:6c:b4:4a:51 | firewall | 5 s |
-| server3linux | 172.18.0.4 | 55:b6:6c:b4:4a:54 | server | 5 s |
-| server4linux | 172.18.0.3 | 55:b6:6c:b4:4a:55 | server | 5 s |
+| f_firewall | 172.18.0.3 | 06:57:47:C1:79:B9 | firewall | 15 s |
+
+> **Note:** This file is auto-populated by `pre_start_check.sh` → `scanner.py` on container startup. The network scanner discovers live hosts on `172.18.0.0/24` via nmap and merges new devices into this file. You can also add devices manually — any manual entries are preserved as long as they are reachable.
 
 ### Rules
 - **`mac_address` must be unique** — it is the primary join key between YAML and the DB.
 - **`hostname` must be unique** — used as the device identifier in alerts and metrics.
 - **`interval`** is in seconds. Minimum recommended: 5 s. Lower values increase SNMP load.
 - **`device_type`** must match one of: `server`, `router`, `switch`, `firewall` (or any custom type you register in `engines/snmp_engine/utils/detect_type.py`).
+- Devices that belong to NEXORA infrastructure (postgres, influxdb, core, etc.) are automatically excluded by the scanner.
 
 ### What to change
 | What | How |
 |---|---|
-| Add a real device | Append a new `- hostname:` block following the structure above |
+| Add a real device | Append a new `- hostname:` block following the structure above, or let `scanner.py` discover it automatically |
 | Remove a device | Delete its block — `DeviceBootstrapper` will cancel its scheduler task within 10 s |
 | Change polling frequency | Edit `interval` per device |
 | Add a new field | Add the key to each device block **and** update `DeviceBootstrapper._load_yaml_devices()` and `DeviceOperations.create_device()` in `nexora-db` |
+| Trigger a network scan | Restart the collectors container — `pre_start_check.sh` runs `scanner.py` automatically |
 
 ---
 

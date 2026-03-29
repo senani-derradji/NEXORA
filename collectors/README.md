@@ -1,7 +1,7 @@
 # NEXORA Collectors
 
-> **Autonomous network observability collector service** — v0.2.0
-> Polls devices via SNMP, normalises metrics, buffers them during core outages, and streams to the NEXORA Core via gRPC.
+> **Autonomous network observability collector service** — v0.3.0
+> Polls devices via SNMP, normalises metrics, buffers them during core outages, and streams to the NEXORA Core via gRPC. Includes automatic network discovery via nmap and pre-start device health checks.
 
 ---
 
@@ -10,6 +10,7 @@
 ```
 collectors/
 ├── main.py                        # Entry point — initialises DB, starts Scheduler
+├── pre_start_check.sh             # Pre-start device health check & network discovery
 ├── requirements.txt               # Python dependencies
 ├── Dockerfile                     # Container image definition
 │
@@ -23,6 +24,7 @@ collectors/
 ├── engines/                       # Collection engines (protocol plugins)
 │   └── snmp_engine/
 │       ├── snmp_collector.py      # Core SNMP poller — CPU, RAM, disk, net, latency
+│       ├── scanner.py             # Network discovery via nmap — auto-discovers devices
 │       └── utils/
 │           ├── detect_vendor.py   # OID → vendor name map (Cisco, Juniper, Huawei …)
 │           └── detect_type.py     # OID → device type map (router, switch, firewall …)
@@ -125,12 +127,47 @@ python main.py
 
 ## Startup Behaviour
 
-`main.py` does two things on start:
+In Docker, the entrypoint is defined in `docker_compose_full.yml`:
+```sh
+/collectors/pre_start_check.sh && python /collectors/main.py 2>&1 | tee /var/log/nexora/collectors.log
+```
+
+### Pre-Start Check (`pre_start_check.sh`)
+
+Runs **before** `main.py` to ensure devices are reachable and valid:
+
+1. **`check_file_exists()`** — Verifies `config/devices.yml` exists. Creates an empty one (`devices: []`) if missing.
+2. **`scan_network()`** — Runs `scanner.py` to discover live hosts on the `172.18.0.0/24` subnet via nmap. New devices are merged into `devices.yml` (services and DB-known IPs are excluded).
+3. **`validate_yaml_format()`** — Validates that the YAML starts with `devices:` and contains at least one device entry with an IP address.
+4. **`process_devices()`** — For each device in `devices.yml`:
+   - Pings the device (30 s timeout, 5 s interval) to verify reachability.
+   - Resolves MAC address via `arp` / `ip neigh`.
+   - Queries SNMP for `sysName`, `sysObjectID`, `sysDescr`.
+   - Enriches hostname with vendor info (via `detect_vendor`).
+   - Detects device type from OID (via `detect_type`) or hostname heuristics.
+   - Writes the updated device list back to `devices.yml`.
+   - Exits with error if **no working devices** are found.
+
+Logs are written to `/collectors/pre_start_check.log` inside the container.
+
+### Main Process (`main.py`)
+
+After the pre-start check passes:
+
 1. Calls `config/db_config/database.py → init()` to connect to the shared PostgreSQL database and create tables.
 2. Instantiates `Scheduler`, which:
    - Loads `config/devices.yml` and syncs devices to the DB via `DeviceBootstrapper`.
    - Spawns one `asyncio.Task` per device.
    - Launches a background loop that re-checks the device list every 10 seconds (hot-reload).
+
+### Docker Compose Volume Mount
+
+The `collectors` service mounts `devices.yml` as a bind volume so the pre-start check can persist discovered devices to the host:
+```yaml
+volumes:
+  - ./logs/collectors:/var/log/nexora
+  - ./collectors/config/devices.yml:/collectors/config/devices.yml
+```
 
 ---
 
@@ -145,6 +182,27 @@ python main.py
 
 ---
 
+## Logging
+
+All service output is tee'd to `logs/collectors/collectors.log` on the host via the Docker volume mount `./logs/collectors:/var/log/nexora`. The pre-start check writes separately to `/collectors/pre_start_check.log` inside the container.
+
+The `logs/` directory structure on the host:
+```
+logs/
+├── backend/backend.log
+├── collectors/collectors.log
+├── core/core.log
+├── frontend/access.log, error.log
+├── influxdb/influxdb.log
+├── mikrotik-router/router.log
+├── mikrotik-switch/switch.log
+└── postgres/postgres.log
+```
+
+Each `.log` file is git-ignored (`logs/**/*.log`). The `.gitkeep` files preserve the directory structure.
+
+---
+
 ## Key Dependencies
 
 | Package | Purpose |
@@ -156,6 +214,7 @@ python main.py
 | `sqlalchemy` + `psycopg2` | DB connection via nexora-db |
 | `watchdog` | File system watching (future use) |
 | `nexora-db` | Shared ORM models & device operations |
+| `nmap` | Network discovery (required by `scanner.py`, installed in Dockerfile) |
 
 ---
 
