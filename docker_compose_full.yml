@@ -338,8 +338,7 @@ services:
       - API_URL=http://backend:8000
 
     volumes:
-      - ./logs/frontend/access.log:/var/log/nginx/access.log
-      - ./logs/frontend/error.log:/var/log/nginx/error.log
+      - ./logs/frontend:/var/log/nginx
 
     networks:
       my_shared_network:

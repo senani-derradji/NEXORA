@@ -240,6 +240,10 @@ def detect_device_type_from_hostname(hostname):
 async def process_single_device(device):
     log_info(f"DEBUG INPUT: device = {device}")
 
+    # Handle both string (IP address) and dictionary formats
+    if isinstance(device, str):
+        device = {'ip_address': device}
+
     ip = device.get('ip') or device.get('ip_address')
     if not ip:
         log_warn(f"DEBUG: No IP found in device: {device}")

@@ -83,8 +83,18 @@ class NetworkScanner:
 
         devices = data.get("devices", [])
 
+
         cleaned_devices = []
         for d in devices:
+            print(f""""
+                  inside scanner :
+                  {d}
+                  ------------------
+                  """)
+            # Handle both string (IP address) and dictionary formats
+            if isinstance(d, str):
+                d = {"ip_address": d}
+
             d.setdefault("mac_address", "00:00:00:00:00:00")
             d.setdefault("interval", self.default_interval)
 

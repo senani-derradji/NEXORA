@@ -136,6 +136,20 @@ if ([string]::IsNullOrWhiteSpace($token)) {
 
 Write-Host "InfluxDB token retrieved successfully." -ForegroundColor Green
 
+# Update .env files with InfluxDB token
+$envPath = "core/configs/.env"
+$envContent = Get-Content $envPath -Raw
+$envContent = $envContent -replace "INFLUXDB_INIT_ADMIN_TOKEN=.*", "INFLUXDB_INIT_ADMIN_TOKEN=$token"
+Set-Content -Path $envPath -Value $envContent
+Write-Host "Updated core/configs/.env with InfluxDB token." -ForegroundColor Green
+
+# Also update core/time_series/config/.env
+$tsEnvPath = "core/time_series/config/.env"
+$tsEnvContent = Get-Content $tsEnvPath -Raw
+$tsEnvContent = $tsEnvContent -replace "INFLUXDB_INIT_ADMIN_TOKEN=.*", "INFLUXDB_INIT_ADMIN_TOKEN=$token"
+Set-Content -Path $tsEnvPath -Value $tsEnvContent
+Write-Host "Updated core/time_series/config/.env with InfluxDB token." -ForegroundColor Green
+
 
 # ── Telegram Credentials ──────────────────────────────────────────────
 $telegramChatID = $null
@@ -197,6 +211,16 @@ if ($null -eq $telegramChatID -or $null -eq $telegramBotToken) {
             exit 1
         }
     }
+}
+
+# Update .env file with Telegram credentials
+if ($null -ne $telegramChatID -and $null -ne $telegramBotToken) {
+    $envPath = "core/configs/.env"
+    $envContent = Get-Content $envPath -Raw
+    $envContent = $envContent -replace "TELEGRAM_BOT_TOKEN=.*", "TELEGRAM_BOT_TOKEN=$telegramBotToken"
+    $envContent = $envContent -replace "TELEGRAM_CHAT_ID=.*", "TELEGRAM_CHAT_ID=$telegramChatID"
+    Set-Content -Path $envPath -Value $envContent
+    Write-Host "Updated .env file with Telegram credentials." -ForegroundColor Green
 }
 
 Write-Host ""

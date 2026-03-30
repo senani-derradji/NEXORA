@@ -26,7 +26,29 @@ class DeviceBootstrapper:
         with open(self.yaml_path, "r") as f:
             data = yaml.safe_load(f) or {}
 
-        return data.get("devices", [])
+        devices = data.get("devices", [])
+
+        # Normalize devices - handle both string (IP address) and dictionary formats
+        normalized_devices = []
+        for d in devices:
+            if isinstance(d, str):
+                # Convert string IP to dictionary with defaults
+                normalized_devices.append({
+                    "ip_address": d,
+                    "hostname": "unknown",
+                    "mac_address": "00:00:00:00:00:00",
+                    "device_type": "unknown",
+                    "interval": 5
+                })
+            else:
+                # Ensure required fields have defaults
+                d.setdefault("hostname", "unknown")
+                d.setdefault("mac_address", "00:00:00:00:00:00")
+                d.setdefault("device_type", "unknown")
+                d.setdefault("interval", 5)
+                normalized_devices.append(d)
+
+        return normalized_devices
 
 
     def _load_db_devices(self):
@@ -63,7 +85,7 @@ class DeviceBootstrapper:
 
         yaml_devices = self._load_yaml_devices()
         db_devices = self._load_db_devices()
-        
+
         db_macs = {d["mac_address"] for d in db_devices}
 
         if self.compare():

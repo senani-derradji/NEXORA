@@ -1,6 +1,12 @@
 devices:
-- ip_address: 172.18.0.3
+- 172.18.0.3
+- ip_address: 172.18.0.2
+  hostname: MikroTik-Switch-SIM_
+  mac_address: E2:08:98:79:42:05
+  device_type: router
   interval: 15
-  hostname: f_firewall
-  device_type: firewall
-  mac_address: 06:57:47:C1:79:B9
+- ip_address: 172.18.0.9
+  hostname: MikroTik-Router-SIM_
+  mac_address: 9E:C8:48:3A:1A:CD
+  device_type: router
+  interval: 15
