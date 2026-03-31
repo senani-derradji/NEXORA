@@ -107,6 +107,13 @@ class Scheduler:
                     new_devices = self.bootstrapper.check_dbs_exists_and_matched_with_yaml()
                     old_set = {d["mac_address"] for d in self.devices}
                     new_set = {d["mac_address"] for d in new_devices}
+                    print(f"""
+                          ---------------
+                          old : {old_set}
+                          ---------------
+                          new : {new_set}
+                          ---------------
+                          """)
                     if old_set != new_set:
                         self.devices = new_devices
                         await self.spawn_tasks()

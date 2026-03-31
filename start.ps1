@@ -9,100 +9,10 @@ Write-Host "Using profile: $Profile"
 
 Write-Host "Cleaning environment..."
 docker compose -f $ComposeFile --profile $Profile down -v | Out-Null
-
-Write-Host "Creating .env files..."
-
-$envContent = @"
-POSTGRES_USER=nexorauser
-POSTGRES_PASSWORD=nexorapass
-POSTGRES_DB=nexoradb
-
-INFLUXDB_ADMIN_USER=admin
-INFLUXDB_ADMIN_PASSWORD=admin123
-INFLUXDB_DB=mydb
-INFLUXDB_ORG=myorg
-INFLUXDB_BUCKET=dr_test
-INFLUXDB_INIT_ADMIN_TOKEN=placeholder
-
-VITE_API_BASE_URL=/
-
-DATABASE_URL=postgresql+psycopg2://nexorauser:nexorapass@postgres:5432/nexoradb
-"@
-
-$backendEnvContent = @"
-DATABASE_URL=postgresql+psycopg2://nexorauser:nexorapass@postgres:5432/nexoradb
-
-INFLUXDB_URL=http://influxdb:8086
-INFLUXDB_ORG=myorg
-INFLUXDB_BUCKET=dr_test
-
-INFLUXDB_INIT_ADMIN_TOKEN=placeholder
-"@
-
-$coreConfigsEnvContent = @"
-DATABASE_URL=postgresql+psycopg2://nexorauser:nexorapass@postgres:5432/nexoradb
-
-INFLUXDB_INIT_ADMIN_TOKEN=placeholder
-INFLUXDB_URL=http://influxdb:8086
-TELEGRAM_BOT_TOKEN=BOT
-TELEGRAM_CHAT_ID=CHAT
-"@
-
-$coreTimeSeriesEnvContent = @"
-INFLUXDB_INIT_ADMIN_TOKEN=placeholder
-TSBS_ORGANIZATION=myorg
-TSBS_BUCKET=dr_test
-TSBS_URL=http://influxdb:8086
-"@
-
-$collectorsEnvContent = @"
-DATABASE_URL=postgresql+psycopg2://nexorauser:nexorapass@postgres:5432/nexoradb
-"@
-
-$frontendEnvContent = @"
-VITE_API_BASE_URL=http://backend:8000
-"@
-
-$dockerEnvContent = @"
-# Postgres
-POSTGRES_USER=nexorauser
-POSTGRES_PASSWORD=nexorapass
-POSTGRES_DB=nexoradb
-
-# Network
-NETWORK_NAME=my_shared_network
-SUBNET=172.18.0.0/24
-GATEWAY=172.18.0.1
-"@
-
-$SecurityEnvContent = @"
-SECRET_KEY=secret_test
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=1440
-"@
+# docker compose -f docker_compose_VLAB.yml up --build -d
 
 
-$envFiles = @{
-    ".env" = $envContent
-    "backend/.env" = $backendEnvContent
-    "core/configs/.env" = $coreConfigsEnvContent
-    "core/time_series/config/.env" = $coreTimeSeriesEnvContent
-    "collectors/config/db_config/.env" = $collectorsEnvContent
-    "frontend/.env" = $frontendEnvContent
-    "docker/.env" = $dockerEnvContent
-    "backend/security/.env" = $SecurityEnvContent
-}
-
-foreach ($file in $envFiles.Keys) {
-    $directory = Split-Path $file -Parent
-    if ($directory -and -not (Test-Path $directory)) {
-        New-Item -ItemType Directory -Path $directory -Force | Out-Null
-    }
-
-    Set-Content -Path $file -Value $envFiles[$file]
-    Write-Host "Created $file"
-}
-
+# ── Start InfluxDB first to get token ─────────────────────────────────
 Write-Host "Starting InfluxDB..."
 docker compose -f $ComposeFile --profile $Profile up -d influxdb | Out-Null
 
@@ -135,21 +45,6 @@ if ([string]::IsNullOrWhiteSpace($token)) {
 }
 
 Write-Host "InfluxDB token retrieved successfully." -ForegroundColor Green
-
-# Update .env files with InfluxDB token
-$envPath = "core/configs/.env"
-$envContent = Get-Content $envPath -Raw
-$envContent = $envContent -replace "INFLUXDB_INIT_ADMIN_TOKEN=.*", "INFLUXDB_INIT_ADMIN_TOKEN=$token"
-Set-Content -Path $envPath -Value $envContent
-Write-Host "Updated core/configs/.env with InfluxDB token." -ForegroundColor Green
-
-# Also update core/time_series/config/.env
-$tsEnvPath = "core/time_series/config/.env"
-$tsEnvContent = Get-Content $tsEnvPath -Raw
-$tsEnvContent = $tsEnvContent -replace "INFLUXDB_INIT_ADMIN_TOKEN=.*", "INFLUXDB_INIT_ADMIN_TOKEN=$token"
-Set-Content -Path $tsEnvPath -Value $tsEnvContent
-Write-Host "Updated core/time_series/config/.env with InfluxDB token." -ForegroundColor Green
-
 
 # ── Telegram Credentials ──────────────────────────────────────────────
 $telegramChatID = $null
@@ -213,14 +108,118 @@ if ($null -eq $telegramChatID -or $null -eq $telegramBotToken) {
     }
 }
 
-# Update .env file with Telegram credentials
-if ($null -ne $telegramChatID -and $null -ne $telegramBotToken) {
-    $envPath = "core/configs/.env"
-    $envContent = Get-Content $envPath -Raw
-    $envContent = $envContent -replace "TELEGRAM_BOT_TOKEN=.*", "TELEGRAM_BOT_TOKEN=$telegramBotToken"
-    $envContent = $envContent -replace "TELEGRAM_CHAT_ID=.*", "TELEGRAM_CHAT_ID=$telegramChatID"
-    Set-Content -Path $envPath -Value $envContent
-    Write-Host "Updated .env file with Telegram credentials." -ForegroundColor Green
+Write-Host ""
+Write-Host "========================================" -ForegroundColor Green
+Write-Host "  CREATING ENV FILES" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Green
+Write-Host ""
+
+# ── Create all .env files with final values ───────────────────────────
+$envContent = @"
+POSTGRES_USER=nexorauser
+POSTGRES_PASSWORD=nexorapass
+POSTGRES_DB=nexoradb
+
+INFLUXDB_ADMIN_USER=admin
+INFLUXDB_ADMIN_PASSWORD=admin123
+INFLUXDB_DB=mydb
+INFLUXDB_ORG=myorg
+INFLUXDB_BUCKET=dr_test
+INFLUXDB_INIT_ADMIN_TOKEN=$token
+
+VITE_API_BASE_URL=/
+
+DATABASE_URL=postgresql+psycopg2://nexorauser:nexorapass@postgres:5432/nexoradb
+"@
+
+$backendEnvContent = @"
+DATABASE_URL=postgresql+psycopg2://nexorauser:nexorapass@postgres:5432/nexoradb
+
+INFLUXDB_URL=http://influxdb:8086
+INFLUXDB_ORG=myorg
+INFLUXDB_BUCKET=dr_test
+
+INFLUXDB_INIT_ADMIN_TOKEN=$token
+"@
+
+$coreConfigsEnvContent = @"
+DATABASE_URL=postgresql+psycopg2://nexorauser:nexorapass@postgres:5432/nexoradb
+
+INFLUXDB_INIT_ADMIN_TOKEN=$token
+INFLUXDB_URL=http://influxdb:8086
+TELEGRAM_BOT_TOKEN=$telegramBotToken
+TELEGRAM_CHAT_ID=$telegramChatID
+"@
+
+$coreTimeSeriesEnvContent = @"
+INFLUXDB_INIT_ADMIN_TOKEN=$token
+TSBS_ORGANIZATION=myorg
+TSBS_BUCKET=dr_test
+TSBS_URL=http://influxdb:8086
+"@
+
+$collectorsEnvContent = @"
+DATABASE_URL=postgresql+psycopg2://nexorauser:nexorapass@postgres:5432/nexoradb
+"@
+
+$frontendEnvContent = @"
+VITE_API_BASE_URL=http://backend:8000
+"@
+
+$dockerEnvContent = @"
+# Postgres
+POSTGRES_USER=nexorauser
+POSTGRES_PASSWORD=nexorapass
+POSTGRES_DB=nexoradb
+
+# Network
+NETWORK_NAME=my_shared_network
+SUBNET=172.18.0.0/24
+GATEWAY=172.18.0.1
+"@
+
+$SecurityEnvContent = @"
+SECRET_KEY=secret_test
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=1440
+"@
+
+
+$envFiles = @{
+    ".env" = $envContent
+    "backend/.env" = $backendEnvContent
+    "core/configs/.env" = $coreConfigsEnvContent
+    "core/time_series/config/.env" = $coreTimeSeriesEnvContent
+    "collectors/config/db_config/.env" = $collectorsEnvContent
+    "frontend/.env" = $frontendEnvContent
+    "docker/.env" = $dockerEnvContent
+    "backend/security/.env" = $SecurityEnvContent
+}
+
+foreach ($file in $envFiles.Keys) {
+    $directory = Split-Path $file -Parent
+    if ($directory -and -not (Test-Path $directory)) {
+        New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    }
+
+    Set-Content -Path $file -Value $envFiles[$file]
+    Write-Host "Created $file" -ForegroundColor Green
+}
+
+Write-Host ""
+Write-Host "========================================" -ForegroundColor Green
+Write-Host "  ALL ENV FILES CREATED!" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Green
+Write-Host ""
+Write-Host "  You can now verify the .env files on your host machine." -ForegroundColor Yellow
+Write-Host "  All files contain the final configuration values." -ForegroundColor Yellow
+Write-Host ""
+
+$confirm = Read-Host "Press Enter to continue and start services (or type 'exit' to abort)"
+
+if ($confirm -eq "exit") {
+    Write-Host "Aborted. Services not started." -ForegroundColor Red
+    exit 0
 }
 
 Write-Host ""

@@ -81,7 +81,7 @@ class NetworkScanner:
         with open(self.devices_file, "r") as f:
             data = yaml.safe_load(f) or {}
 
-        devices = data.get("devices", [])
+        devices = data.get("devices", []) or []
 
 
         cleaned_devices = []
@@ -120,6 +120,12 @@ class NetworkScanner:
         os.makedirs(os.path.dirname(self.devices_file), exist_ok=True)
 
         db_ips = self._load_existing_ips_from_db()
+        db_devices = []
+        if self.bootstrapper is not None:
+            try:
+                db_devices = self.bootstrapper._load_db_devices()
+            except Exception as e:
+                logger.warning(f"Could not load DB devices for saving: {e}")
 
         merged: Dict[str, dict] = {}
         for d in devices:
@@ -129,12 +135,16 @@ class NetworkScanner:
             else:
                 merged[ip] = dict(d)
 
+        # Add devices from DB that are not in the input devices list
+        for d in db_devices:
+            ip = d["ip_address"]
+            if ip not in merged:
+                merged[ip] = dict(d)
+
         cleaned = []
         for d in merged.values():
             ip = d["ip_address"]
             hostname = d.get("hostname", "unknown")
-            if ip in db_ips:
-                continue
             if self._is_service(hostname, ip):
                 continue
             cleaned.append({
@@ -154,7 +164,7 @@ class NetworkScanner:
                 ["nmap", "-sn", "--min-parallelism", "10", self.subnet],
                 capture_output=True,
                 text=True,
-                timeout=120,
+                timeout=30,
             )
             output = result.stdout
         except FileNotFoundError:

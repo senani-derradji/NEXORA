@@ -65,12 +65,26 @@ class Validator:
         if device_type is None:
             return None
         if not isinstance(device_type, str):
-            raise NormalizerValidationError(f"device_type must be a string, got {type(device_type).__name__}")
-        allowed = {"router", "switch", "server", "firewall", "access_point", "endpoint", "unknown"}
+            raise NormalizerValidationError(
+                f"device_type must be a string, got {type(device_type).__name__}"
+            )
+
+        allowed = {"router", "switch", "server", "firewall", "access_point", "endpoint", "unknown", "windows", "linux"}
         device_type = device_type.strip().lower()
-        if device_type not in allowed:
-            raise NormalizerValidationError(f"device_type must be one of {allowed}, got '{device_type}'")
-        return device_type
+
+        matches = [i for i in allowed if i.startswith(device_type)]
+
+        if not matches:
+            raise NormalizerValidationError(
+            f"device_type must be one of {allowed}, got '{device_type}'"
+            )
+
+        if len(matches) > 1:
+            raise NormalizerValidationError(
+                f"Ambiguous device_type '{device_type}', could be {matches}"
+            )
+
+        return matches[0]
 
     @staticmethod
     def validate_percentage(value, field: str) -> float:

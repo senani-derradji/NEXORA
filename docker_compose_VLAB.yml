@@ -1,0 +1,93 @@
+services:
+
+  # v_lab_windows:
+  #   build:
+  #     context: ./v_labs/win_
+  #     dockerfile: Dockerfile
+
+  #   container_name: windows
+  #   restart: unless-stopped
+
+  #   expose: ["161/udp"]
+  #   networks:
+  #     my_shared_network:
+  #       ipv4_address: 172.18.0.3
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: "0.2"
+  #         memory: 64m
+
+
+
+  # v_lab_linux:
+  #   build:
+  #     context: ./v_labs/linux_
+  #     dockerfile: Dockerfile
+
+  #   container_name: linux
+  #   restart: unless-stopped
+
+  #   expose: ["161/udp"]
+  #   networks:
+  #     my_shared_network:
+  #       ipv4_address: 172.18.0.4
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: "0.2"
+  #         memory: 64m
+
+  v_lab_switch:
+    build:
+      context: ./v_labs/micro_switch
+      dockerfile: Dockerfile
+    container_name: mikrotik-switch
+    hostname: MikroTik-Switch-SIM
+    restart: unless-stopped
+
+    privileged: true
+    expose: ["161/udp"]
+    volumes:
+      - ./logs/mikrotik-switch:/var/log/nexora
+    command: sh -c "/startup.sh 2>&1 | tee /var/log/nexora/switch.log"
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.3"
+          memory: 128m
+
+  v_lab_router:
+    build:
+      context: ./v_labs/micro_router
+      dockerfile: Dockerfile
+    container_name: mikrotik-router
+    hostname: MikroTik-Router-SIM
+    restart: unless-stopped
+
+    privileged: true
+    expose: ["161/udp"]
+    volumes:
+      - ./logs/mikrotik-router:/var/log/nexora
+    command: sh -c "/startup.sh 2>&1 | tee /var/log/nexora/router.log"
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.6
+    deploy:
+      resources:
+        limits:
+          cpus: "0.3"
+          memory: 128m
+
+networks:
+  my_shared_network:
+    name: my_shared_network
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.18.0.0/24
+          gateway: 172.18.0.1
