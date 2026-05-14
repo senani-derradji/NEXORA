@@ -1,42 +1,42 @@
 services:
 
-  # v_lab_windows:
-  #   build:
-  #     context: ./v_labs/win_
-  #     dockerfile: Dockerfile
+  v_lab_windows:
+    build:
+      context: ./v_labs/win_
+      dockerfile: Dockerfile
 
-  #   container_name: windows
-  #   restart: unless-stopped
+    container_name: windows
+    restart: unless-stopped
 
-  #   expose: ["161/udp"]
-  #   networks:
-  #     my_shared_network:
-  #       ipv4_address: 172.18.0.3
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         cpus: "0.2"
-  #         memory: 64m
+    expose: ["161/udp"]
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.2"
+          memory: 64m
 
 
 
-  # v_lab_linux:
-  #   build:
-  #     context: ./v_labs/linux_
-  #     dockerfile: Dockerfile
+  v_lab_linux:
+    build:
+      context: ./v_labs/linux_
+      dockerfile: Dockerfile
 
-  #   container_name: linux
-  #   restart: unless-stopped
+    container_name: linux
+    restart: unless-stopped
 
-  #   expose: ["161/udp"]
-  #   networks:
-  #     my_shared_network:
-  #       ipv4_address: 172.18.0.4
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         cpus: "0.2"
-  #         memory: 64m
+    expose: ["161/udp"]
+    networks:
+      my_shared_network:
+        ipv4_address: 172.18.0.4
+    deploy:
+      resources:
+        limits:
+          cpus: "0.2"
+          memory: 64m
 
   v_lab_switch:
     build:

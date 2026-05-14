@@ -1,1 +1,6 @@
 devices:
+- ip_address: 172.18.0.4
+  interval: 15
+
+- ip_address: 172.18.0.3
+  interval: 15

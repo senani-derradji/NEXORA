@@ -11,12 +11,12 @@ from nexora_db.operations.devices_ops import DeviceOperations
 
 init(url_env="DATABASE_URL")
 
+
 class DeviceBootstrapper:
 
     def __init__(self, yaml_path: str):
         self.yaml_path = yaml_path
         self.device_ops = DeviceOperations()
-
 
     def _load_yaml_devices(self):
 
@@ -26,13 +26,17 @@ class DeviceBootstrapper:
         with open(self.yaml_path, "r") as f:
             data = yaml.safe_load(f) or {}
 
-        devices = data.get("devices", [])
+        devices = data.get("devices") or []
 
-        # Normalize devices - handle both string (IP address) and dictionary formats
         normalized_devices = []
+
         for d in devices:
+
+            if d is None:
+                continue
+
             if isinstance(d, str):
-                # Convert string IP to dictionary with defaults
+
                 normalized_devices.append({
                     "ip_address": d,
                     "hostname": "unknown",
@@ -40,16 +44,22 @@ class DeviceBootstrapper:
                     "device_type": "unknown",
                     "interval": 5
                 })
-            else:
-                # Ensure required fields have defaults
-                d.setdefault("hostname", "unknown")
-                d.setdefault("mac_address", "00:00:00:00:00:00")
-                d.setdefault("device_type", "unknown")
-                d.setdefault("interval", 5)
-                normalized_devices.append(d)
+
+                continue
+
+            # Skip invalid types
+            if not isinstance(d, dict):
+                continue
+
+            normalized_devices.append({
+                "hostname": d.get("hostname", "unknown"),
+                "device_type": d.get("device_type", "unknown"),
+                "ip_address": d.get("ip_address", ""),
+                "mac_address": d.get("mac_address", "00:00:00:00:00:00"),
+                "interval": d.get("interval", 5),
+            })
 
         return normalized_devices
-
 
     def _load_db_devices(self):
 
@@ -67,7 +77,6 @@ class DeviceBootstrapper:
             for d in devices
         ]
 
-
     def compare(self):
 
         yaml_devices = self._load_yaml_devices()
@@ -76,10 +85,12 @@ class DeviceBootstrapper:
         yaml_macs = {d["mac_address"] for d in yaml_devices}
         db_macs = {d["mac_address"] for d in db_devices}
 
-        print(yaml_macs == db_macs, " COMPARED (TRUE = SAME , FALSE = DIFFERENT)")
+        print(
+            yaml_macs == db_macs,
+            " COMPARED (TRUE = SAME , FALSE = DIFFERENT)"
+        )
 
         return yaml_macs == db_macs
-
 
     def check_dbs_exists_and_matched_with_yaml(self):
 
@@ -88,6 +99,7 @@ class DeviceBootstrapper:
 
         db_macs = {d["mac_address"] for d in db_devices}
 
+        # Already synchronized
         if self.compare():
             return db_devices
 
@@ -111,6 +123,9 @@ class DeviceBootstrapper:
 
             except IntegrityError:
 
-                print(f"[BOOTSTRAP] Device already exists: {device['hostname']}")
+                print(
+                    f"[BOOTSTRAP] Device already exists: "
+                    f"{device['hostname']}"
+                )
 
         return self._load_db_devices()
