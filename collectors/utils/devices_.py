@@ -50,7 +50,6 @@ class DeviceBootstrapper:
                 d.setdefault("device_type", "unknown")
                 d.setdefault("interval", 5)
                 normalized_devices.append(d)
-            # silently skip None or malformed entries
 
         return normalized_devices
 

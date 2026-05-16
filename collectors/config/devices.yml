@@ -1,12 +1,11 @@
 devices:
 - ip_address: 172.18.0.4
+  hostname: 57895b2e0133_linux
+  mac_address: e6:bb:d4:e8:ab:05
+  device_type: unknown
   interval: 15
-
-- ip_address: 172.18.0.3
-  interval: 15
-
-- ip_address: 172.18.0.5
-  interval: 15
-
 - ip_address: 172.18.0.6
+  hostname: MikroTik-Router-SIM_
+  mac_address: 06:aa:9b:07:a1:bb
+  device_type: router
   interval: 15
